@@ -14,13 +14,13 @@ import (
 )
 
 type LunchMoneySyncer struct {
-	client          *http.LunchMoneyClient
-	database        *db.DB
+	client          http.LunchMoneyClientInterface
+	database        db.DBInterface
 	accountSelector *InstitutionSelector
 	forceSync       bool
 }
 
-func NewLunchMoneySyncer(ctx context.Context, apiKey string, db *db.DB) (*LunchMoneySyncer, error) {
+func NewLunchMoneySyncer(ctx context.Context, apiKey string, database db.DBInterface) (*LunchMoneySyncer, error) {
 	c, err := http.NewLunchMoneyClient(ctx, apiKey)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func NewLunchMoneySyncer(ctx context.Context, apiKey string, db *db.DB) (*LunchM
 
 	return &LunchMoneySyncer{
 		client:          c,
-		database:        db,
+		database:        database,
 		accountSelector: as,
 	}, nil
 }

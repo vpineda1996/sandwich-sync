@@ -72,3 +72,46 @@ Transactions are stored in a SQLite database located at `~/.lunchmoney/transacti
 ```
 ./lunchmoney --db /path/to/database.db repl
 ```
+
+## Testing
+
+The project includes a comprehensive test suite. To run the tests:
+
+```
+go test ./...
+```
+
+This will run all tests in the project. You can also run tests for a specific package:
+
+```
+go test ./pkg/models
+go test ./pkg/http
+go test ./pkg/services
+go test ./db
+```
+
+## Continuous Integration
+
+This project uses GitHub Actions for continuous integration. The CI pipeline runs on every push to the main branch and on every pull request. It performs the following tasks:
+
+1. Runs all tests
+2. Lints the code using golangci-lint
+
+The CI configuration is defined in `.github/workflows/go.yml`.
+
+## Development
+
+### Adding New Tests
+
+When adding new features, please also add corresponding tests. The project follows a standard Go testing approach:
+
+1. Create a file named `<filename>_test.go` in the same package as the code being tested
+2. Write test functions with the naming convention `TestXxx` where `Xxx` is the function being tested
+3. Use the `testing` package to write assertions
+
+### Mocking
+
+For testing components that have external dependencies, the project uses interface-based mocking:
+
+- `db/mock_db.go` provides a mock implementation of the database
+- `pkg/http/mock_lunchmoney.go` provides a mock implementation of the LunchMoney client

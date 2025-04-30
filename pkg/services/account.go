@@ -11,7 +11,7 @@ import (
 )
 
 type InstitutionSelector struct {
-	client          *http.LunchMoneyClient
+	client          http.LunchMoneyClientInterface
 	selectedAccount *models.Institution
 }
 
@@ -24,6 +24,13 @@ func NewInstitutionSelector(ctx context.Context, apiKey string) (*InstitutionSel
 	return &InstitutionSelector{
 		client: c,
 	}, nil
+}
+
+// NewInstitutionSelectorWithClient creates a new institution selector with a provided client
+func NewInstitutionSelectorWithClient(client http.LunchMoneyClientInterface) *InstitutionSelector {
+	return &InstitutionSelector{
+		client: client,
+	}
 }
 
 func (is *InstitutionSelector) FindPossibleInstitutionForTransaction(ctx context.Context,
