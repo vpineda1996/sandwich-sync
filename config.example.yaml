@@ -1,0 +1,5 @@
+# Lunch Money API Configuration
+# Get your API key from https://my.lunchmoney.app/developers
+
+# Your Lunch Money API key
+lunchMoneyApiKey: "<YOUR_LUNCH_MONEY_API_KEY>"
