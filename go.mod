@@ -1,4 +1,4 @@
-module github.com/vpineda1996/sandwhich-sync
+module github.com/vpineda1996/sandwich-sync
 
 go 1.23
 

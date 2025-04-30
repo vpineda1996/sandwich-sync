@@ -1,4 +1,4 @@
-# Sandwhich Sync CLI
+# Sandwich Sync CLI
 
 A command-line tool for fetching transactions from Rogers Bank API storing them locally and syncing them to LunchMoney.
 

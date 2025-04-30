@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vpineda1996/sandwhich-sync/pkg/models"
+	"github.com/vpineda1996/sandwich-sync/pkg/models"
 
 	_ "github.com/mattn/go-sqlite3"
 )

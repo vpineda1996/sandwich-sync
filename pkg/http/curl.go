@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vpineda1996/sandwhich-sync/pkg/models"
+	"github.com/vpineda1996/sandwich-sync/pkg/models"
 )
 
 // CurlClient represents an HTTP client for making API requests

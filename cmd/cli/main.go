@@ -10,12 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/vpineda1996/sandwhich-sync/db"
-	"github.com/vpineda1996/sandwhich-sync/pkg/config"
-	"github.com/vpineda1996/sandwhich-sync/pkg/http"
-	"github.com/vpineda1996/sandwhich-sync/pkg/models"
-	"github.com/vpineda1996/sandwhich-sync/pkg/parser"
-	"github.com/vpineda1996/sandwhich-sync/pkg/services"
+	"github.com/vpineda1996/sandwich-sync/db"
+	"github.com/vpineda1996/sandwich-sync/pkg/config"
+	"github.com/vpineda1996/sandwich-sync/pkg/http"
+	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpineda1996/sandwich-sync/pkg/parser"
+	"github.com/vpineda1996/sandwich-sync/pkg/services"
 )
 
 var (

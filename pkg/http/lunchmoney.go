@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vpineda1996/sandwhich-sync/pkg/models"
+	"github.com/vpineda1996/sandwich-sync/pkg/models"
 
 	"github.com/icco/lunchmoney"
 )
