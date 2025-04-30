@@ -1,4 +1,4 @@
-# Lunchmoney CLI
+# Sandwhich Sync CLI
 
 A command-line tool for fetching transactions from Rogers Bank API storing them locally and syncing them to LunchMoney.
 
@@ -42,7 +42,7 @@ The application supports both single-quoted and caret-quoted curl commands:
 #### Single-quoted (standard curl format)
 
 ```
-curl 'https://rbaccess.rogersbank.com/issuing/digital/account/111111111/customers' \
+curl 'https://rbaccess.rogersbank.com/issuing/digital/account/111111111/customer/00000000/activity?cycleStartDate=2025-04-23' \
   -H 'Accept-Language: en-US,en;q=0.9,es;q=0.8,en-CA;q=0.7' \
   -H 'Connection: keep-alive' \
   -b 'X_DOM_session_guid=215o1231; language=en' \
