@@ -101,7 +101,7 @@ func TestFetchTransactions(t *testing.T) {
 
 		// Write the response
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -144,7 +144,7 @@ func TestFetchTransactionsError(t *testing.T) {
 	// Create a test server that returns an error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Unauthorized"))
+		_, _ = w.Write([]byte("Unauthorized"))
 	}))
 	defer server.Close()
 
