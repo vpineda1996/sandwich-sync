@@ -9,9 +9,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type RogersOptions struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	DeviceId string `yaml:"deviceId"`
+}
+
 // Config holds the application configuration
 type Config struct {
-	LunchMoneyAPIKey string `yaml:"lunchMoneyApiKey"`
+	LunchMoneyAPIKey string        `yaml:"lunchMoneyApiKey"`
+	RogersApiOptions RogersOptions `yaml:"rogers"`
 }
 
 var (
@@ -82,6 +89,11 @@ func GetConfig() (*Config, error) {
 			// Create a default configuration
 			defaultConfig := &Config{
 				LunchMoneyAPIKey: "", // Empty by default
+				RogersApiOptions: RogersOptions{
+					Username: "",
+					Password: "",
+					DeviceId: "",
+				},
 			}
 
 			// Marshal the default configuration to YAML
@@ -109,6 +121,33 @@ func GetConfig() (*Config, error) {
 	configMutex.RLock()
 	defer configMutex.RUnlock()
 	return globalConfig, nil
+}
+
+// GetRogersCredentials returns the Rogers API credentials from the configuration
+func GetRogersCredentials() (string, string, error) {
+	config, err := GetConfig()
+	if err != nil {
+		return "", "", err
+	}
+
+	if config.RogersApiOptions.Username == "" || config.RogersApiOptions.Password == "" {
+		return "", "", fmt.Errorf("error: Rogers API credentials not set in configuration")
+	}
+
+	return config.RogersApiOptions.Username, config.RogersApiOptions.Password, nil
+}
+
+func GetRogersDeviceId() (string, error) {
+	config, err := GetConfig()
+	if err != nil {
+		return "", err
+	}
+
+	if config.RogersApiOptions.DeviceId == "" {
+		return "", fmt.Errorf("error: Rogers API device fingerprint not set in configuration")
+	}
+
+	return config.RogersApiOptions.DeviceId, nil
 }
 
 // GetLunchMoneyAPIKey returns the Lunch Money API key from the configuration

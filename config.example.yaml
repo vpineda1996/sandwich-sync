@@ -3,3 +3,10 @@
 
 # Your Lunch Money API key
 lunchMoneyApiKey: "<YOUR_LUNCH_MONEY_API_KEY>"
+
+rogers:
+  # Rogers API Configuration
+  username: "<YOUR_ROGERS_USERNAME>"
+  password: "<YOUR_ROGERS_PASSWORD>"
+  deviceId: "<FINGERPRINT_DEVICE_ID>"
+
