@@ -149,6 +149,11 @@ func runREPL() {
 			continue
 		}
 
+		if strings.HasPrefix(trimmedLine, "fetch") && !isMultiline {
+			fetchTransactions(database)
+			continue
+		}
+
 		if (strings.HasPrefix(trimmedLine, "remove") || strings.HasPrefix(trimmedLine, "delete")) && !isMultiline {
 			removeTransaction(trimmedLine, database)
 			continue
@@ -180,6 +185,49 @@ func runREPL() {
 
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+	}
+}
+
+func fetchTransactions(database *db.DB) {
+	deviceId, err := config.GetRogersDeviceId()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting Rogers device ID: %v\n", err)
+		return
+	}
+	client := http.NewRogersBankClient(deviceId)
+
+	username, password, err := config.GetRogersCredentials()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting Rogers credentials: %v\n", err)
+		return
+	}
+
+	if err := client.Authenticate(context.Background(), username, password); err != nil {
+		fmt.Fprintf(os.Stderr, "Error authenticating: %v\n", err)
+		return
+	}
+
+	// Fetch transactions
+	transactions, err := client.FetchTransactions(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
+		return
+	}
+
+	for _, tx := range transactions {
+		if tx, err := database.GetTransactionByReference(tx.ReferenceNumber); tx != nil && err == nil {
+			fmt.Printf("Transaction %s already exists in the database\n", tx.ReferenceNumber)
+			continue
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "Error checking transaction: %v\n", err)
+			continue
+		}
+
+		if err := database.SaveTransaction(tx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
+			continue
+		}
+		fmt.Printf("Transaction %s saved successfully\n", tx.ReferenceNumber)
 	}
 }
 
@@ -385,6 +433,7 @@ func printHelp() {
 	fmt.Println("  help                 - Show this help message")
 	fmt.Println("  config               - Show the current configuration")
 	fmt.Println("  list                 - List all transactions in the database")
+	fmt.Println("  fetch                - Fetch transactions from Rogers Bank")
 	fmt.Println("  sync                 - Sync database with LunchMoney API")
 	fmt.Println("  add <ref> <amount> <currency> <merchant> <date> [<category>]")
 	fmt.Println("                       - Add a transaction manually")
