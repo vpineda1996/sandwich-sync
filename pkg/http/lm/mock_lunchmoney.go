@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/icco/lunchmoney"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // MockLunchMoneyClient is a mock implementation of the LunchMoneyClient for testing

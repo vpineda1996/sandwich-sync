@@ -3,9 +3,9 @@ package http
 import (
 	"context"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/http/rogers"
-	"github.com/vpineda1996/sandwich-sync/pkg/http/ws"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/http/rogers"
+	"github.com/vpnda/sandwich-sync/pkg/http/ws"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 type TransactionFetcher interface {

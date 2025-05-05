@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 func TestNew(t *testing.T) {

@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/vpineda1996/sandwich-sync/pkg/config"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
-	"github.com/vpineda1996/wsfetch/pkg/auth/types"
-	"github.com/vpineda1996/wsfetch/pkg/base"
-	"github.com/vpineda1996/wsfetch/pkg/client"
+	"github.com/vpnda/sandwich-sync/pkg/config"
+	"github.com/vpnda/sandwich-sync/pkg/models"
+	"github.com/vpnda/wsfetch/pkg/auth/types"
+	"github.com/vpnda/wsfetch/pkg/base"
+	"github.com/vpnda/wsfetch/pkg/client"
 )
 
 type WealthsimpleClient struct {

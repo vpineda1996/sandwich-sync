@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // MockDB is a mock implementation of the DB for testing

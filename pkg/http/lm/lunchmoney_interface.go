@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/icco/lunchmoney"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // LunchMoneyClientInterface defines the interface for LunchMoney API operations

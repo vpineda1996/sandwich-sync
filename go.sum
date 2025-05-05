@@ -61,10 +61,10 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/vektah/gqlparser/v2 v2.5.11 h1:JJxLtXIoN7+3x6MBdtIP59TP1RANnY7pXOaDnADQSf8=
 github.com/vektah/gqlparser/v2 v2.5.11/go.mod h1:1rCcfwB2ekJofmluGWXMSEnPMZgbxzwj6FaZ/4OT8Cc=
-github.com/vpineda1996/lunchmoney v0.5.0 h1:K2LByXM1ZNIDi+/0urxDKkwZhxqagM3NS4XzGSfSFGI=
-github.com/vpineda1996/lunchmoney v0.5.0/go.mod h1:zk07IlbNSzeM063YGkGxujZuWmnMKEM18+LrVs/CZb4=
-github.com/vpineda1996/wsfetch v0.1.0 h1:lRU2Rr+e8p7ESDOSqyonUUdzzspAMWAnuR4yQbmDjF4=
-github.com/vpineda1996/wsfetch v0.1.0/go.mod h1:SIN6NW5Kaf0fdI8l2BJSbZp6dW8OgiEm5v4YMu+DKuE=
+github.com/vpnda/lunchmoney v0.5.0 h1:3AJcPj2py9XJHPszpN2sBMLXZO4EhQM95tAka1oPO1g=
+github.com/vpnda/lunchmoney v0.5.0/go.mod h1:zk07IlbNSzeM063YGkGxujZuWmnMKEM18+LrVs/CZb4=
+github.com/vpnda/wsfetch v0.1.1 h1:PwY2eSPADRu9x0ECheY1Im5R8nKN60dhA/TTqOfET24=
+github.com/vpnda/wsfetch v0.1.1/go.mod h1:AGnJsXZwUA1IBdYy6d8TLc97SpFDGqHJSyXevD7Orrs=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=

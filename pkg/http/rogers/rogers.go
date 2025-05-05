@@ -10,7 +10,7 @@ import (
 	"net/http/cookiejar"
 
 	"github.com/samber/lo"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 type RogersBankClient struct {

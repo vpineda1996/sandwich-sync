@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vpineda1996/sandwich-sync/db"
-	"github.com/vpineda1996/sandwich-sync/pkg/http/lm"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/db"
+	"github.com/vpnda/sandwich-sync/pkg/http/lm"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 
 	"github.com/icco/lunchmoney"
 	"github.com/samber/lo"

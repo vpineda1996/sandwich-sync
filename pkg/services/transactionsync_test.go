@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vpineda1996/sandwich-sync/db"
-	"github.com/vpineda1996/sandwich-sync/pkg/http/lm"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/db"
+	"github.com/vpnda/sandwich-sync/pkg/http/lm"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 func TestSyncTransactions(t *testing.T) {

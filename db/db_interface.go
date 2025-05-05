@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // DBInterface defines the interface for database operations

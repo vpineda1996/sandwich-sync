@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/http/lm"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/http/lm"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 type InstitutionSelector struct {

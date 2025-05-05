@@ -1,4 +1,4 @@
-module github.com/vpineda1996/sandwich-sync
+module github.com/vpnda/sandwich-sync
 
 go 1.23.0
 
@@ -11,7 +11,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/samber/lo v1.50.0
 	github.com/spf13/cobra v1.9.1
-	github.com/vpineda1996/wsfetch v0.1.0
+	github.com/vpnda/wsfetch v0.1.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -37,4 +37,4 @@ require (
 	golang.org/x/text v0.24.0 // indirect
 )
 
-replace github.com/icco/lunchmoney v0.4.1 => github.com/vpineda1996/lunchmoney v0.5.0
+replace github.com/icco/lunchmoney v0.4.1 => github.com/vpnda/lunchmoney v0.5.0
