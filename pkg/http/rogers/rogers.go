@@ -1,4 +1,4 @@
-package http
+package rogers
 
 import (
 	"bytes"
@@ -133,7 +133,7 @@ func (c *RogersBankClient) IsAuthenticated() bool {
 	return c.accountId != "" && c.customerId != ""
 }
 
-func (c *RogersBankClient) FetchTransactions(ctx context.Context) ([]*models.Transaction, error) {
+func (c *RogersBankClient) FetchTransactions(ctx context.Context) ([]models.Transaction, error) {
 	if !c.IsAuthenticated() {
 		return nil, fmt.Errorf("client is not authenticated")
 	}

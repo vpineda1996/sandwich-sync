@@ -1,4 +1,4 @@
-package http
+package rogers
 
 import (
 	"encoding/json"
@@ -80,7 +80,7 @@ func TestFetchTransactions(t *testing.T) {
 		}
 
 		// Create a sample response
-		transactions := []*models.Transaction{
+		transactions := []models.Transaction{
 			{
 				ReferenceNumber: "TX123",
 				ActivityType:    "TRANS",

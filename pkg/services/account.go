@@ -6,17 +6,17 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/http"
+	"github.com/vpineda1996/sandwich-sync/pkg/http/lm"
 	"github.com/vpineda1996/sandwich-sync/pkg/models"
 )
 
 type InstitutionSelector struct {
-	client          http.LunchMoneyClientInterface
+	client          lm.LunchMoneyClientInterface
 	selectedAccount *models.Institution
 }
 
 func NewInstitutionSelector(ctx context.Context, apiKey string) (*InstitutionSelector, error) {
-	c, err := http.NewLunchMoneyClient(ctx, apiKey)
+	c, err := lm.NewLunchMoneyClient(ctx, apiKey)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func NewInstitutionSelector(ctx context.Context, apiKey string) (*InstitutionSel
 }
 
 // NewInstitutionSelectorWithClient creates a new institution selector with a provided client
-func NewInstitutionSelectorWithClient(client http.LunchMoneyClientInterface) *InstitutionSelector {
+func NewInstitutionSelectorWithClient(client lm.LunchMoneyClientInterface) *InstitutionSelector {
 	return &InstitutionSelector{
 		client: client,
 	}

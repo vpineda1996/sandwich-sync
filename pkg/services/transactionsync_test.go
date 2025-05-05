@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/vpineda1996/sandwich-sync/db"
-	"github.com/vpineda1996/sandwich-sync/pkg/http"
+	"github.com/vpineda1996/sandwich-sync/pkg/http/lm"
 	"github.com/vpineda1996/sandwich-sync/pkg/models"
 )
 
@@ -51,7 +51,7 @@ func TestSyncTransactions(t *testing.T) {
 	mockDB.Transactions[tx2.ReferenceNumber] = tx2
 
 	// Create mock LunchMoney client
-	mockClient := &http.MockLunchMoneyClient{
+	mockClient := &lm.MockLunchMoneyClient{
 		Institutions: []models.Institution{
 			{Id: 1, Name: "Test Institution"},
 		},
@@ -116,7 +116,7 @@ func TestFilterUnsyncedTransactions(t *testing.T) {
 	mockDB := db.NewMockDB()
 
 	// Create mock LunchMoney client
-	mockClient := &http.MockLunchMoneyClient{
+	mockClient := &lm.MockLunchMoneyClient{
 		Transactions: []models.Transaction{
 			{
 				ReferenceNumber: "TX456",
@@ -230,7 +230,7 @@ func TestFilterUnsyncedTransactions(t *testing.T) {
 
 func TestEnrichWithInstitutions(t *testing.T) {
 	// Create mock LunchMoney client
-	mockClient := &http.MockLunchMoneyClient{
+	mockClient := &lm.MockLunchMoneyClient{
 		Institutions: []models.Institution{
 			{Id: 1, Name: "Test Institution"},
 		},

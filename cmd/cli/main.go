@@ -12,7 +12,8 @@ import (
 
 	"github.com/vpineda1996/sandwich-sync/db"
 	"github.com/vpineda1996/sandwich-sync/pkg/config"
-	"github.com/vpineda1996/sandwich-sync/pkg/http"
+	"github.com/vpineda1996/sandwich-sync/pkg/http/rogers"
+	"github.com/vpineda1996/sandwich-sync/pkg/http/ws"
 	"github.com/vpineda1996/sandwich-sync/pkg/models"
 	"github.com/vpineda1996/sandwich-sync/pkg/parser"
 	"github.com/vpineda1996/sandwich-sync/pkg/services"
@@ -95,7 +96,7 @@ func runREPL() {
 	}
 
 	// Create HTTP client
-	client := http.NewCurlClient()
+	client := rogers.NewCurlClient()
 
 	// Start REPL
 	scanner := bufio.NewScanner(os.Stdin)
@@ -188,13 +189,32 @@ func runREPL() {
 	}
 }
 
+// TODO incorporate to DB, need to do some changes in client
+func fetchTransactionsWs(database *db.DB) {
+	client, err := ws.NewWealthsimpleClient(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating Wealthsimple client: %v\n", err)
+		return
+	}
+
+	transactions, err := client.FetchTransactions(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
+		return
+	}
+
+	for _, tx := range transactions {
+		fmt.Printf("%35s %15s %12s %s\n", tx.ReferenceNumber, tx.Date, tx.Amount.Value, tx.Merchant.Name)
+	}
+}
+
 func fetchTransactions(database *db.DB) {
 	deviceId, err := config.GetRogersDeviceId()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting Rogers device ID: %v\n", err)
 		return
 	}
-	client := http.NewRogersBankClient(deviceId)
+	client := rogers.NewRogersBankClient(deviceId)
 
 	username, password, err := config.GetRogersCredentials()
 	if err != nil {
@@ -223,7 +243,7 @@ func fetchTransactions(database *db.DB) {
 			continue
 		}
 
-		if err := database.SaveTransaction(tx); err != nil {
+		if err := database.SaveTransaction(&tx); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
 			continue
 		}
@@ -253,7 +273,7 @@ func syncTransactions(database *db.DB) {
 	}
 }
 
-func processCurlCommand(input string, client *http.CurlClient, database *db.DB) {
+func processCurlCommand(input string, client *rogers.CurlClient, database *db.DB) {
 	// Parse curl command
 	cmd, err := parser.ParseCurlCommand(input)
 	if err != nil {
@@ -292,7 +312,7 @@ func processCurlCommand(input string, client *http.CurlClient, database *db.DB) 
 
 	// Save transactions to database
 	for _, tx := range transactions {
-		if err := database.SaveTransaction(tx); err != nil {
+		if err := database.SaveTransaction(&tx); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
 			continue
 		}

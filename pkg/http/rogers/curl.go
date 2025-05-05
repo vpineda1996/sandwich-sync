@@ -1,4 +1,4 @@
-package http
+package rogers
 
 import (
 	"encoding/json"
@@ -26,11 +26,11 @@ func NewCurlClient() *CurlClient {
 }
 
 type activitiesResponse struct {
-	Activities []*models.Transaction `json:"activities"`
+	Activities []models.Transaction `json:"activities"`
 }
 
 // FetchTransactions fetches transactions from the API
-func (c *CurlClient) FetchTransactions(url string, headers map[string]string) ([]*models.Transaction, error) {
+func (c *CurlClient) FetchTransactions(url string, headers map[string]string) ([]models.Transaction, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

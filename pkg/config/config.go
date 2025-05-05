@@ -15,10 +15,17 @@ type RogersOptions struct {
 	DeviceId string `yaml:"deviceId"`
 }
 
+type WealthsimpleOptions struct {
+	Username    string `yaml:"username"`
+	Password    string `yaml:"password"`
+	PrevSession string `yaml:"prevSession"`
+}
+
 // Config holds the application configuration
 type Config struct {
-	LunchMoneyAPIKey string        `yaml:"lunchMoneyApiKey"`
-	RogersApiOptions RogersOptions `yaml:"rogers"`
+	LunchMoneyAPIKey       string              `yaml:"lunchMoneyApiKey"`
+	RogersApiOptions       RogersOptions       `yaml:"rogers"`
+	WealthsimpleApiOptions WealthsimpleOptions `yaml:"wealthsimple"`
 }
 
 var (
@@ -162,4 +169,54 @@ func GetLunchMoneyAPIKey() (string, error) {
 	}
 
 	return config.LunchMoneyAPIKey, nil
+}
+
+// GetWealthsimpleCredentials returns the Wealthsimple API credentials from the configuration
+func GetWealthsimpleCredentials() (string, string, error) {
+	config, err := GetConfig()
+	if err != nil {
+		return "", "", err
+	}
+
+	if config.WealthsimpleApiOptions.Username == "" || config.WealthsimpleApiOptions.Password == "" {
+		return "", "", fmt.Errorf("error: Wealthsimple API credentials not set in configuration")
+	}
+
+	return config.WealthsimpleApiOptions.Username, config.WealthsimpleApiOptions.Password, nil
+}
+
+func GetWealthsimplePrevSession() (string, error) {
+	config, err := GetConfig()
+	if err != nil {
+		return "", err
+	}
+
+	if config.WealthsimpleApiOptions.PrevSession == "" {
+		return "", fmt.Errorf("error: Wealthsimple API prev session not set in configuration")
+	}
+
+	return config.WealthsimpleApiOptions.PrevSession, nil
+}
+
+func SetWealthsimplePrevSession(session string) error {
+	config, err := GetConfig()
+	if err != nil {
+		return err
+	}
+
+	config.WealthsimpleApiOptions.PrevSession = session
+
+	configMutex.Lock()
+	defer configMutex.Unlock()
+
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("error marshalling config: %w", err)
+	}
+
+	if err := os.WriteFile("config.yaml", data, 0644); err != nil {
+		return fmt.Errorf("error writing config file: %w", err)
+	}
+
+	return nil
 }

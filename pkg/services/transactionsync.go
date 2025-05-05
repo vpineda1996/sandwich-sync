@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/vpineda1996/sandwich-sync/db"
-	"github.com/vpineda1996/sandwich-sync/pkg/http"
+	"github.com/vpineda1996/sandwich-sync/pkg/http/lm"
 	"github.com/vpineda1996/sandwich-sync/pkg/models"
 
 	"github.com/icco/lunchmoney"
@@ -14,14 +14,14 @@ import (
 )
 
 type LunchMoneySyncer struct {
-	client          http.LunchMoneyClientInterface
+	client          lm.LunchMoneyClientInterface
 	database        db.DBInterface
 	accountSelector *InstitutionSelector
 	forceSync       bool
 }
 
 func NewLunchMoneySyncer(ctx context.Context, apiKey string, database db.DBInterface) (*LunchMoneySyncer, error) {
-	c, err := http.NewLunchMoneyClient(ctx, apiKey)
+	c, err := lm.NewLunchMoneyClient(ctx, apiKey)
 	if err != nil {
 		return nil, err
 	}
