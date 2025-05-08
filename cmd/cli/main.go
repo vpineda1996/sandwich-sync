@@ -190,7 +190,6 @@ func runREPL() {
 	}
 }
 
-// TODO incorporate to DB, need to do some changes in client
 func fetchTransactionsWs(database *db.DB) {
 	client, err := ws.NewWealthsimpleClient(context.Background())
 	if err != nil {
