@@ -3,85 +3,99 @@ package services
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 
+	"github.com/vpnda/sandwich-sync/db"
 	"github.com/vpnda/sandwich-sync/pkg/http/lm"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
-type InstitutionSelector struct {
+const (
+	DefaultAccountName = "Default Account"
+)
+
+type AccountSelector struct {
 	client          lm.LunchMoneyClientInterface
-	selectedAccount *models.Institution
+	db              db.DBInterface
+	selectedAccount *models.AccountMapping
 }
 
-func NewInstitutionSelector(ctx context.Context, apiKey string) (*InstitutionSelector, error) {
+func NewAccountSelector(ctx context.Context, apiKey string, database db.DBInterface) (*AccountSelector, error) {
 	c, err := lm.NewLunchMoneyClient(ctx, apiKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return &InstitutionSelector{
+	return &AccountSelector{
 		client: c,
+		db:     database,
 	}, nil
 }
 
-// NewInstitutionSelectorWithClient creates a new institution selector with a provided client
-func NewInstitutionSelectorWithClient(client lm.LunchMoneyClientInterface) *InstitutionSelector {
-	return &InstitutionSelector{
+// NewAccountSelectorWithClient creates a new account selector with a provided client
+func NewAccountSelectorWithClient(client lm.LunchMoneyClientInterface, database db.DBInterface) *AccountSelector {
+	return &AccountSelector{
 		client: client,
+		db:     database,
 	}
 }
 
-func (is *InstitutionSelector) FindPossibleInstitutionForTransaction(ctx context.Context,
-	transaction *models.Transaction) (*models.Institution, error) {
-	// Fetch institutions from the LunchMoney API
-	institutions, err := is.client.ListInstitutions(ctx)
+func (is *AccountSelector) FindPossibleAccountForTransaction(ctx context.Context, transaction *models.TransactionWithAccount) (*models.AccountMapping, error) {
+	// Fetch mapping from the database
+	mapping, err := is.db.GetAccountMapping(transaction.ReferenceNumber)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check if the transaction's merchant name matches any institution's card name
-	someCardDigits := regexp.MustCompile("[0-9]{4}").FindString(transaction.Merchant.Name)
-	if someCardDigits != "" {
-		for _, institution := range institutions {
-			if strings.Contains(institution.Name, someCardDigits) {
-				return &institution, nil
-			}
-		}
+	if mapping != nil {
+		return mapping, nil
 	}
 
 	if is.selectedAccount != nil {
 		return is.selectedAccount, nil
 	}
 
-	fmt.Printf("Could not find institution for transaction [%s] %s (%s). Please select one:\n",
+	fmt.Printf("Could not find account for transaction [%s] %s (%s). Please select one:\n",
 		transaction.ReferenceNumber, transaction.Merchant.Name, transaction.Amount.ToMoney().Display())
-	return is.selectInstitutionInteractive()
+	return is.selectAccountInteractive(transaction.SourceAccountName)
 }
 
-func (is *InstitutionSelector) selectInstitutionInteractive() (*models.Institution, error) {
-	institutions, err := is.client.ListInstitutions(context.Background())
+func (is *AccountSelector) selectAccountInteractive(sourceAccountName string) (*models.AccountMapping, error) {
+	accounts, err := is.client.ListAccounts(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	for i, institution := range institutions {
-		fmt.Println("\t", i, institution.Name)
+	for i, account := range accounts {
+		fmt.Printf("\t %-2d. %s\n", i, account.Name)
 	}
 
 	var selection int
-	fmt.Print("Enter the number of the institution you want to select: ")
+	fmt.Printf("Enter the number of the account you want to map %q: ", sourceAccountName)
 	_, err = fmt.Scan(&selection)
-	if err != nil || selection < 0 || selection >= len(institutions) {
+	if err != nil || selection < 0 || selection >= len(accounts) {
 		return nil, fmt.Errorf("invalid selection")
 	}
 
-	return &institutions[selection], nil
+	selected := &accounts[selection]
+	mapping := &models.AccountMapping{
+		LunchMoneyId: selected.LunchMoneyId,
+		ExternalName: sourceAccountName,
+		IsPlaid:      selected.IsPlaid,
+	}
+
+	// Save the mapping to the database
+	if sourceAccountName != DefaultAccountName {
+		err = is.db.UpsertAccountMapping(mapping)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save account mapping: %w", err)
+		}
+	}
+
+	return mapping, nil
 }
 
-func (is *InstitutionSelector) SelectDefaultInstitution() error {
-	sa, err := is.selectInstitutionInteractive()
+func (is *AccountSelector) SelectDefaultAccount() error {
+	sa, err := is.selectAccountInteractive(DefaultAccountName)
 	if err != nil {
 		return err
 	}

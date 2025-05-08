@@ -63,8 +63,8 @@ github.com/vektah/gqlparser/v2 v2.5.11 h1:JJxLtXIoN7+3x6MBdtIP59TP1RANnY7pXOaDnA
 github.com/vektah/gqlparser/v2 v2.5.11/go.mod h1:1rCcfwB2ekJofmluGWXMSEnPMZgbxzwj6FaZ/4OT8Cc=
 github.com/vpnda/lunchmoney v0.5.0 h1:3AJcPj2py9XJHPszpN2sBMLXZO4EhQM95tAka1oPO1g=
 github.com/vpnda/lunchmoney v0.5.0/go.mod h1:zk07IlbNSzeM063YGkGxujZuWmnMKEM18+LrVs/CZb4=
-github.com/vpnda/wsfetch v0.1.1 h1:PwY2eSPADRu9x0ECheY1Im5R8nKN60dhA/TTqOfET24=
-github.com/vpnda/wsfetch v0.1.1/go.mod h1:AGnJsXZwUA1IBdYy6d8TLc97SpFDGqHJSyXevD7Orrs=
+github.com/vpnda/wsfetch v0.1.2-0.20250507020207-39bc86a75a1f h1:xrCHzpFIZqRYv95j4wBYPLjZGroQW4qnKfByp9IHzqI=
+github.com/vpnda/wsfetch v0.1.2-0.20250507020207-39bc86a75a1f/go.mod h1:gzD+GEHzvlbCYBugSHqwL7HZn0TqsxlFIitaXtlNBSc=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=

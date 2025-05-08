@@ -9,7 +9,7 @@ import (
 )
 
 type TransactionFetcher interface {
-	FetchTransactions(ctx context.Context) ([]models.Transaction, error)
+	FetchTransactions(ctx context.Context) ([]models.TransactionWithAccount, error)
 }
 
 var (

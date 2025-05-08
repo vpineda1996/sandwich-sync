@@ -151,7 +151,8 @@ func runREPL() {
 		}
 
 		if strings.HasPrefix(trimmedLine, "fetch") && !isMultiline {
-			fetchTransactions(database)
+			fetchTransactionsRogers(database)
+			fetchTransactionsWs(database)
 			continue
 		}
 
@@ -202,13 +203,10 @@ func fetchTransactionsWs(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
 		return
 	}
-
-	for _, tx := range transactions {
-		fmt.Printf("%35s %15s %12s %s\n", tx.ReferenceNumber, tx.Date, tx.Amount.Value, tx.Merchant.Name)
-	}
+	insertTransactionsToDb(database, transactions)
 }
 
-func fetchTransactions(database *db.DB) {
+func fetchTransactionsRogers(database *db.DB) {
 	deviceId, err := config.GetRogersDeviceId()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting Rogers device ID: %v\n", err)
@@ -233,7 +231,10 @@ func fetchTransactions(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
 		return
 	}
+	insertTransactionsToDb(database, transactions)
+}
 
+func insertTransactionsToDb(database *db.DB, transactions []models.TransactionWithAccount) {
 	for _, tx := range transactions {
 		if tx, err := database.GetTransactionByReference(tx.ReferenceNumber); tx != nil && err == nil {
 			fmt.Printf("Transaction %s already exists in the database\n", tx.ReferenceNumber)
@@ -334,13 +335,14 @@ func listTransactions(database *db.DB) {
 	}
 
 	fmt.Printf("Found %d transactions:\n\n", len(transactions))
-	fmt.Printf("%-30s %-15s %-30s %-15s %-15s\n", "Reference Number", "Amount", "Merchant Name", "Date", "LunchMoney ID")
-	fmt.Println(strings.Repeat("-", 110))
+	fmt.Printf("%-20s %-30s %-15s %-30s %-15s %-15s\n", "SourceAccount", "Reference Number", "Amount", "Merchant Name", "Date", "LunchMoney ID")
+	fmt.Println(strings.Repeat("-", 130))
 	for _, tx := range transactions {
-		fmt.Printf("%-30s %-15s %-30s %-15s %-15d\n",
-			tx.ReferenceNumber,
+		fmt.Printf("%-20s %-30s %-15s %-30s %-15s %-15d\n",
+			tx.SourceAccountName[:min(20, len(tx.SourceAccountName))],
+			tx.ReferenceNumber[:min(30, len(tx.ReferenceNumber))],
 			tx.Amount.Value+" "+tx.Amount.Currency,
-			tx.Merchant.Name,
+			tx.Merchant.Name[:min(30, len(tx.Merchant.Name))],
 			tx.Date,
 			tx.LunchMoneyID)
 	}
@@ -396,24 +398,19 @@ func addTransaction(input string, database *db.DB) {
 	}
 
 	// Create transaction
-	tx := &models.Transaction{
-		ReferenceNumber:        referenceNumber,
-		ActivityType:           "TRANS",
-		Amount:                 &models.Amount{Value: amountValue, Currency: currency},
-		ActivityStatus:         "APPROVED",
-		ActivityCategory:       category,
-		ActivityClassification: "PURCHASE",
-		CardNumber:             "************0000", // Masked card number
-		Merchant: &models.Merchant{
-			Name:     merchantName,
-			Category: category,
-			Address:  &models.Address{},
+	tx := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: referenceNumber,
+			Amount:          models.Amount{Value: amountValue, Currency: currency},
+			Merchant: &models.Merchant{
+				Name:         merchantName,
+				CategoryCode: category,
+				Address:      &models.Address{},
+			},
+			Date:       date,
+			PostedDate: date,
 		},
-		Date:                 date,
-		ActivityCategoryCode: "0001",
-		CustomerID:           "MANUAL",
-		PostedDate:           date,
-		Name:                 &models.Name{NameOnCard: "MANUAL ENTRY"},
+		SourceAccountName: "Manual Entry",
 	}
 
 	// Save transaction

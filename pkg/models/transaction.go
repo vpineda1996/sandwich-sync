@@ -8,27 +8,24 @@ import (
 	"github.com/Rhymond/go-money"
 )
 
-type TransactionWithInstitution struct {
+type TransactionWithAccountMapping struct {
 	Transaction
-	Institution *Institution `json:"institution"`
+	Mapping *AccountMapping `json:"accountMapping"`
+}
+
+type TransactionWithAccount struct {
+	Transaction
+	SourceAccountName string `json:"sourceAccountName"`
 }
 
 // Transaction represents a financial transaction
 type Transaction struct {
-	ReferenceNumber        string    `json:"referenceNumber"`
-	ActivityType           string    `json:"activityType"`
-	Amount                 *Amount   `json:"amount"`
-	ActivityStatus         string    `json:"activityStatus"`
-	ActivityCategory       string    `json:"activityCategory"`
-	ActivityClassification string    `json:"activityClassification"`
-	CardNumber             string    `json:"cardNumber"`
-	Merchant               *Merchant `json:"merchant"`
-	Date                   string    `json:"date"`
-	ActivityCategoryCode   string    `json:"activityCategoryCode"`
-	CustomerID             string    `json:"customerId"`
-	PostedDate             string    `json:"postedDate"`
-	LunchMoneyID           int64     `json:"lunchMoneyId"`
-	Name                   *Name     `json:"name"`
+	ReferenceNumber string    `json:"referenceNumber"`
+	LunchMoneyID    int64     `json:"lunchMoneyId"`
+	Amount          Amount    `json:"amount"`
+	Merchant        *Merchant `json:"merchant"`
+	Date            string    `json:"date"`
+	PostedDate      string    `json:"postedDate"`
 }
 
 // PrintFormatted prints the transaction in a formatted way
@@ -37,59 +34,34 @@ func (t *Transaction) PrintFormatted() {
 	if t.ReferenceNumber != "" {
 		fmt.Printf("	Reference Number: %s\n", t.ReferenceNumber)
 	}
-	if t.ActivityType != "" {
-		fmt.Printf("	Activity Type: %s\n", t.ActivityType)
-	}
-	if t.Amount != nil && t.Amount.Value != "" && t.Amount.Currency != "" {
+	if t.Amount.Value != "" && t.Amount.Currency != "" {
 		fmt.Printf("	Amount: %s %s\n", t.Amount.Value, t.Amount.Currency)
 	}
-	if t.ActivityStatus != "" {
-		fmt.Printf("	Activity Status: %s\n", t.ActivityStatus)
-	}
-	if t.ActivityCategory != "" {
-		fmt.Printf("	Activity Category: %s\n", t.ActivityCategory)
-	}
-	if t.ActivityClassification != "" {
-		fmt.Printf("	Activity Classification: %s\n", t.ActivityClassification)
-	}
-	if t.CardNumber != "" {
-		fmt.Printf("	Card Number: %s\n", t.CardNumber)
-	}
+
 	if t.Merchant != nil {
 		if t.Merchant.Name != "" {
 			fmt.Printf("	Merchant Name: %s\n", t.Merchant.Name)
 		}
-		if t.Merchant.Category != "" {
-			fmt.Printf("	Merchant Category: %s\n", t.Merchant.Category)
+		if t.Merchant.CategoryCode != "" {
+			fmt.Printf("	Merchant Category: %s\n", t.Merchant.CategoryCode)
 		}
 		if t.Merchant.Address != nil {
 			address := t.Merchant.Address
-			if address.City != "" || address.StateProvince != "" || address.PostalCode != "" || address.CountryCode != "" {
-				fmt.Printf("	Merchant Address: %s, %s, %s, %s\n",
+			if address.City != "" || address.StateProvince != "" {
+				fmt.Printf("	Merchant Address: %s, %sn",
 					address.City,
-					address.StateProvince,
-					address.PostalCode,
-					address.CountryCode)
+					address.StateProvince)
 			}
 		}
 	}
 	if t.Date != "" {
 		fmt.Printf("	Date: %s\n", t.Date)
 	}
-	if t.ActivityCategoryCode != "" {
-		fmt.Printf("	Activity Category Code: %s\n", t.ActivityCategoryCode)
-	}
-	if t.CustomerID != "" {
-		fmt.Printf("	Customer ID: %s\n", t.CustomerID)
-	}
 	if t.PostedDate != "" {
 		fmt.Printf("	Posted Date: %s\n", t.PostedDate)
 	}
 	if t.LunchMoneyID != 0 {
 		fmt.Printf("	LunchMoney ID: %d\n", t.LunchMoneyID)
-	}
-	if t.Name != nil && t.Name.NameOnCard != "" {
-		fmt.Printf("	Name on Card: %s\n", t.Name.NameOnCard)
 	}
 }
 
@@ -120,19 +92,15 @@ func (a *Amount) ToMoney() *money.Money {
 
 // Merchant represents a merchant in a transaction
 type Merchant struct {
-	Name                string   `json:"name"`
-	CategoryCode        string   `json:"categoryCode"`
-	CategoryDescription string   `json:"categoryDescription"`
-	Category            string   `json:"category"`
-	Address             *Address `json:"address"`
+	Name         string   `json:"name"`
+	CategoryCode string   `json:"categoryCode"`
+	Address      *Address `json:"address"`
 }
 
 // Address represents a merchant's address
 type Address struct {
 	City          string `json:"city"`
 	StateProvince string `json:"stateProvince"`
-	PostalCode    string `json:"postalCode"`
-	CountryCode   string `json:"countryCode"`
 }
 
 // Name represents the name on the card

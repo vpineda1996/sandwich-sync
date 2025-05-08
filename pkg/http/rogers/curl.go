@@ -30,7 +30,7 @@ type activitiesResponse struct {
 }
 
 // FetchTransactions fetches transactions from the API
-func (c *CurlClient) FetchTransactions(url string, headers map[string]string) ([]models.Transaction, error) {
+func (c *CurlClient) FetchTransactions(url string, headers map[string]string) ([]models.TransactionWithAccount, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -67,7 +67,16 @@ func (c *CurlClient) FetchTransactions(url string, headers map[string]string) ([
 		return nil, fmt.Errorf("failed to parse response: %w, body: %s", err, string(body))
 	}
 
-	return transactions.Activities, nil
+	var result []models.TransactionWithAccount
+	for _, activity := range transactions.Activities {
+		tx := models.TransactionWithAccount{
+			Transaction:       activity,
+			SourceAccountName: "Rogers Bank",
+		}
+		result = append(result, tx)
+	}
+
+	return result, nil
 }
 
 // ExtractCookies extracts cookies from a cookie header string

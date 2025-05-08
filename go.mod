@@ -11,7 +11,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/samber/lo v1.50.0
 	github.com/spf13/cobra v1.9.1
-	github.com/vpnda/wsfetch v0.1.1
+	github.com/vpnda/wsfetch v0.1.2-0.20250507020207-39bc86a75a1f
 	gopkg.in/yaml.v3 v3.0.1
 )
 

@@ -16,7 +16,7 @@ import (
 type LunchMoneySyncer struct {
 	client          lm.LunchMoneyClientInterface
 	database        db.DBInterface
-	accountSelector *InstitutionSelector
+	accountSelector *AccountSelector
 	forceSync       bool
 }
 
@@ -26,7 +26,7 @@ func NewLunchMoneySyncer(ctx context.Context, apiKey string, database db.DBInter
 		return nil, err
 	}
 
-	as, err := NewInstitutionSelector(ctx, apiKey)
+	as, err := NewAccountSelector(ctx, apiKey, database)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 	fmt.Printf("Fetched %d transactions from local database\n", len(transactions))
 
 	// only consider transactions that are less than 30 days old
-	recentTransactions := make([]*models.Transaction, 0)
+	recentTransactions := make([]*models.TransactionWithAccount, 0)
 	for _, transaction := range transactions {
 		transactionDate, err := time.Parse(time.DateOnly, transaction.Date)
 		if err != nil {
@@ -69,7 +69,7 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 	if len(unsyncedTransactions) != 0 {
 		// sync the transactions with the LunchMoney API
 		fmt.Printf("Syncing %d unsynced transactions with LunchMoney\n", len(unsyncedTransactions))
-		enrichUnsyncedTransactions, err := l.enrichWithInstitutions(ctx, unsyncedTransactions)
+		enrichUnsyncedTransactions, err := l.enrichWithAccounts(ctx, unsyncedTransactions)
 		if err != nil {
 			return err
 		}
@@ -102,33 +102,34 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 	return nil
 }
 
-func (l *LunchMoneySyncer) enrichWithInstitutions(ctx context.Context,
-	unsyncedTransactions []*models.Transaction) ([]*models.TransactionWithInstitution, error) {
-	enrichUnsyncedTransactions := make([]*models.TransactionWithInstitution, 0)
+func (l *LunchMoneySyncer) enrichWithAccounts(ctx context.Context,
+	unsyncedTransactions []*models.TransactionWithAccount) ([]*models.TransactionWithAccountMapping, error) {
+	enrichUnsyncedTransactions := make([]*models.TransactionWithAccountMapping, 0)
 
 	for _, transaction := range unsyncedTransactions {
-		// find the institution for the transaction
-		institution, err := l.accountSelector.FindPossibleInstitutionForTransaction(ctx, transaction)
+		// find the account for the transaction
+		account, err := l.accountSelector.FindPossibleAccountForTransaction(ctx, transaction)
 		if err != nil {
 			return nil, err
 		}
 
-		if institution == nil {
-			fmt.Printf("No institution found for transaction %s\n", transaction.ReferenceNumber)
+		if account == nil {
+			fmt.Printf("No account found for transaction %s\n", transaction.ReferenceNumber)
 			continue
 		}
-		// create a new transaction with the institution
-		transactionWithInstitution := &models.TransactionWithInstitution{
-			Transaction: *transaction,
-			Institution: institution,
+		// create a new transaction with the account
+		transactionWithAccount := &models.TransactionWithAccountMapping{
+			Transaction: transaction.Transaction,
+			Mapping:     account,
 		}
-		enrichUnsyncedTransactions = append(enrichUnsyncedTransactions, transactionWithInstitution)
+		enrichUnsyncedTransactions = append(enrichUnsyncedTransactions, transactionWithAccount)
 	}
 	return enrichUnsyncedTransactions, nil
 }
 
-func (l *LunchMoneySyncer) filterUnsyncedTransactions(ctx context.Context, transactions []*models.Transaction) ([]*models.Transaction, []*models.Transaction, error) {
-	missingLunchId := make([]*models.Transaction, 0)
+func (l *LunchMoneySyncer) filterUnsyncedTransactions(ctx context.Context,
+	transactions []*models.TransactionWithAccount) ([]*models.TransactionWithAccount, []*models.TransactionWithAccount, error) {
+	missingLunchId := make([]*models.TransactionWithAccount, 0)
 	for _, transaction := range transactions {
 		if transaction.ReferenceNumber == "" {
 			// Skip transactions without a reference number
@@ -152,8 +153,8 @@ func (l *LunchMoneySyncer) filterUnsyncedTransactions(ctx context.Context, trans
 	}
 
 	// Filter out transactions that are already synced
-	missingUpdate := make([]*models.Transaction, 0)
-	unsynced := make([]*models.Transaction, 0)
+	missingUpdate := make([]*models.TransactionWithAccount, 0)
+	unsynced := make([]*models.TransactionWithAccount, 0)
 	for _, transaction := range missingLunchId {
 		transactionSynced := false
 		for _, lunchTransaction := range lunchTransactions {

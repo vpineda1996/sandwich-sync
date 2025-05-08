@@ -83,8 +83,7 @@ func TestFetchTransactions(t *testing.T) {
 		transactions := []models.Transaction{
 			{
 				ReferenceNumber: "TX123",
-				ActivityType:    "TRANS",
-				Amount: &models.Amount{
+				Amount: models.Amount{
 					Value:    "25.99",
 					Currency: "USD",
 				},

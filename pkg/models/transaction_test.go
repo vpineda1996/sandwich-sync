@@ -57,31 +57,20 @@ func TestTransactionPrintFormatted(t *testing.T) {
 	// We'll just ensure it doesn't panic
 	tx := &Transaction{
 		ReferenceNumber: "TEST123",
-		ActivityType:    "TRANS",
-		Amount: &Amount{
+		Amount: Amount{
 			Value:    "25.99",
 			Currency: "USD",
 		},
-		ActivityStatus:         "APPROVED",
-		ActivityCategory:       "PURCHASE",
-		ActivityClassification: "PURCHASE",
-		CardNumber:             "************1234",
 		Merchant: &Merchant{
-			Name:     "Test Merchant",
-			Category: "RETAIL",
+			Name: "Test Merchant",
 			Address: &Address{
 				City:          "Test City",
 				StateProvince: "TS",
-				PostalCode:    "12345",
-				CountryCode:   "US",
 			},
 		},
-		Date:                 "2025-04-29",
-		ActivityCategoryCode: "0001",
-		CustomerID:           "TEST",
-		PostedDate:           "2025-04-29",
-		Name:                 &Name{NameOnCard: "TEST USER"},
-		LunchMoneyID:         12345,
+		Date:         "2025-04-29",
+		PostedDate:   "2025-04-29",
+		LunchMoneyID: 12345,
 	}
 
 	// This should not panic

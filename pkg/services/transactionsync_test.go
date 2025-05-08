@@ -15,36 +15,38 @@ func TestSyncTransactions(t *testing.T) {
 	mockDB := db.NewMockDB()
 
 	// Add some test transactions to the database
-	tx1 := &models.Transaction{
-		ReferenceNumber: "TX123",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "25.99",
-			Currency: "USD",
+	tx1 := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TX123",
+			Amount: models.Amount{
+				Value:    "25.99",
+				Currency: "USD",
+			},
+			Merchant: &models.Merchant{
+				Name:    "Test Merchant 1",
+				Address: &models.Address{},
+			},
+			Date:         time.Now().Format(time.DateOnly),
+			LunchMoneyID: 0, // Not synced yet
 		},
-		Merchant: &models.Merchant{
-			Name:    "Test Merchant 1",
-			Address: &models.Address{},
-		},
-		Date:         time.Now().Format(time.DateOnly),
-		Name:         &models.Name{},
-		LunchMoneyID: 0, // Not synced yet
+		SourceAccountName: "Test Account",
 	}
 
-	tx2 := &models.Transaction{
-		ReferenceNumber: "TX456",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "50.00",
-			Currency: "USD",
+	tx2 := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TX456",
+			Amount: models.Amount{
+				Value:    "50.00",
+				Currency: "USD",
+			},
+			Merchant: &models.Merchant{
+				Name:    "Test Merchant 2",
+				Address: &models.Address{},
+			},
+			Date:         time.Now().Format(time.DateOnly),
+			LunchMoneyID: 12345, // Already synced
 		},
-		Merchant: &models.Merchant{
-			Name:    "Test Merchant 2",
-			Address: &models.Address{},
-		},
-		Date:         time.Now().Format(time.DateOnly),
-		Name:         &models.Name{},
-		LunchMoneyID: 12345, // Already synced
+		SourceAccountName: "Test Account",
 	}
 
 	mockDB.Transactions[tx1.ReferenceNumber] = tx1
@@ -52,13 +54,13 @@ func TestSyncTransactions(t *testing.T) {
 
 	// Create mock LunchMoney client
 	mockClient := &lm.MockLunchMoneyClient{
-		Institutions: []models.Institution{
-			{Id: 1, Name: "Test Institution"},
+		Accounts: []models.LunchMoneyAccount{
+			{LunchMoneyId: 1, Name: "Test Account"},
 		},
 		Transactions: []models.Transaction{
 			{
 				ReferenceNumber: "TX456",
-				Amount: &models.Amount{
+				Amount: models.Amount{
 					Value:    "50.00",
 					Currency: "USD",
 				},
@@ -72,11 +74,11 @@ func TestSyncTransactions(t *testing.T) {
 		InsertedIDs: []int64{54321},
 	}
 
-	// Create a mock institution selector
-	mockSelector := NewInstitutionSelectorWithClient(mockClient)
-	mockSelector.selectedAccount = &models.Institution{
-		Id:   1,
-		Name: "Test Institution",
+	// Create a mock account selector
+	mockSelector := NewAccountSelectorWithClient(mockClient, mockDB)
+	mockSelector.selectedAccount = &models.AccountMapping{
+		LunchMoneyId: 1,
+		ExternalName: "Test Account",
 	}
 
 	// Create the syncer
@@ -120,7 +122,7 @@ func TestFilterUnsyncedTransactions(t *testing.T) {
 		Transactions: []models.Transaction{
 			{
 				ReferenceNumber: "TX456",
-				Amount: &models.Amount{
+				Amount: models.Amount{
 					Value:    "50.00",
 					Currency: "USD",
 				},
@@ -132,7 +134,7 @@ func TestFilterUnsyncedTransactions(t *testing.T) {
 			},
 			{
 				ReferenceNumber: "TX789",
-				Amount: &models.Amount{
+				Amount: models.Amount{
 					Value:    "75.00",
 					Currency: "USD",
 				},
@@ -152,55 +154,58 @@ func TestFilterUnsyncedTransactions(t *testing.T) {
 	}
 
 	// Create test transactions
-	tx1 := &models.Transaction{
-		ReferenceNumber: "TX123",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "25.99",
-			Currency: "USD",
+	tx1 := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TX123",
+			Amount: models.Amount{
+				Value:    "25.99",
+				Currency: "USD",
+			},
+			Merchant: &models.Merchant{
+				Name:    "Test Merchant 1",
+				Address: &models.Address{},
+			},
+			Date:         time.Now().Format(time.DateOnly),
+			LunchMoneyID: 0, // Not synced yet
 		},
-		Merchant: &models.Merchant{
-			Name:    "Test Merchant 1",
-			Address: &models.Address{},
-		},
-		Date:         time.Now().Format(time.DateOnly),
-		Name:         &models.Name{},
-		LunchMoneyID: 0, // Not synced yet
+		SourceAccountName: "Test Account",
 	}
 
-	tx2 := &models.Transaction{
-		ReferenceNumber: "TX456",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "50.00",
-			Currency: "USD",
+	tx2 := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TX456",
+			Amount: models.Amount{
+				Value:    "50.00",
+				Currency: "USD",
+			},
+			Merchant: &models.Merchant{
+				Name:    "Test Merchant 2",
+				Address: &models.Address{},
+			},
+			Date:         time.Now().Format(time.DateOnly),
+			LunchMoneyID: 0, // Not synced yet, but matches an existing LunchMoney transaction
 		},
-		Merchant: &models.Merchant{
-			Name:    "Test Merchant 2",
-			Address: &models.Address{},
-		},
-		Date:         time.Now().Format(time.DateOnly),
-		Name:         &models.Name{},
-		LunchMoneyID: 0, // Not synced yet, but matches an existing LunchMoney transaction
+		SourceAccountName: "Test Account",
 	}
 
-	tx3 := &models.Transaction{
-		ReferenceNumber: "TX789",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "75.00",
-			Currency: "USD",
+	tx3 := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TX789",
+			Amount: models.Amount{
+				Value:    "75.00",
+				Currency: "USD",
+			},
+			Merchant: &models.Merchant{
+				Name:    "Test Merchant 3",
+				Address: &models.Address{},
+			},
+			Date:         time.Now().Format(time.DateOnly),
+			LunchMoneyID: 67890, // Already synced
 		},
-		Merchant: &models.Merchant{
-			Name:    "Test Merchant 3",
-			Address: &models.Address{},
-		},
-		Date:         time.Now().Format(time.DateOnly),
-		Name:         &models.Name{},
-		LunchMoneyID: 67890, // Already synced
+		SourceAccountName: "Test Account",
 	}
 
-	transactions := []*models.Transaction{tx1, tx2, tx3}
+	transactions := []*models.TransactionWithAccount{tx1, tx2, tx3}
 
 	// Test filtering unsynced transactions
 	unsynced, needUpdate, err := syncer.filterUnsyncedTransactions(context.Background(), transactions)
@@ -228,19 +233,21 @@ func TestFilterUnsyncedTransactions(t *testing.T) {
 	}
 }
 
-func TestEnrichWithInstitutions(t *testing.T) {
+func TestEnrichWithAccounts(t *testing.T) {
+	// Create mock database
+	mockDB := db.NewMockDB()
 	// Create mock LunchMoney client
 	mockClient := &lm.MockLunchMoneyClient{
-		Institutions: []models.Institution{
-			{Id: 1, Name: "Test Institution"},
+		Accounts: []models.LunchMoneyAccount{
+			{LunchMoneyId: 1, Name: "Test Account"},
 		},
 	}
 
-	// Create a mock institution selector
-	mockSelector := NewInstitutionSelectorWithClient(mockClient)
-	mockSelector.selectedAccount = &models.Institution{
-		Id:   1,
-		Name: "Test Institution",
+	// Create a mock account selector
+	mockSelector := NewAccountSelectorWithClient(mockClient, mockDB)
+	mockSelector.selectedAccount = &models.AccountMapping{
+		LunchMoneyId: 1,
+		ExternalName: "Test Account",
 	}
 
 	// Create the syncer
@@ -250,40 +257,42 @@ func TestEnrichWithInstitutions(t *testing.T) {
 	}
 
 	// Create test transactions
-	tx1 := &models.Transaction{
-		ReferenceNumber: "TX123",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "25.99",
-			Currency: "USD",
+	tx1 := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TX123",
+			Amount: models.Amount{
+				Value:    "25.99",
+				Currency: "USD",
+			},
+			Merchant: &models.Merchant{
+				Name:    "Test Merchant 1",
+				Address: &models.Address{},
+			},
+			Date: time.Now().Format(time.DateOnly),
 		},
-		Merchant: &models.Merchant{
-			Name:    "Test Merchant 1",
-			Address: &models.Address{},
-		},
-		Date: time.Now().Format(time.DateOnly),
-		Name: &models.Name{},
+		SourceAccountName: "Test Account",
 	}
 
-	tx2 := &models.Transaction{
-		ReferenceNumber: "TX456",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "50.00",
-			Currency: "USD",
+	tx2 := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TX456",
+			Amount: models.Amount{
+				Value:    "50.00",
+				Currency: "USD",
+			},
+			Merchant: &models.Merchant{
+				Name:    "Test Merchant 2",
+				Address: &models.Address{},
+			},
+			Date: time.Now().Format(time.DateOnly),
 		},
-		Merchant: &models.Merchant{
-			Name:    "Test Merchant 2",
-			Address: &models.Address{},
-		},
-		Date: time.Now().Format(time.DateOnly),
-		Name: &models.Name{},
+		SourceAccountName: "Test Account",
 	}
 
-	transactions := []*models.Transaction{tx1, tx2}
+	transactions := []*models.TransactionWithAccount{tx1, tx2}
 
-	// Test enriching transactions with institutions
-	enriched, err := syncer.enrichWithInstitutions(context.Background(), transactions)
+	// Test enriching transactions with accounts
+	enriched, err := syncer.enrichWithAccounts(context.Background(), transactions)
 	if err != nil {
 		t.Fatalf("Failed to enrich transactions: %v", err)
 	}
@@ -294,12 +303,12 @@ func TestEnrichWithInstitutions(t *testing.T) {
 	}
 
 	for _, tx := range enriched {
-		if tx.Institution == nil {
-			t.Errorf("Expected transaction to have an institution, got nil")
-		} else if tx.Institution.Id != 1 {
-			t.Errorf("Expected institution ID 1, got %d", tx.Institution.Id)
-		} else if tx.Institution.Name != "Test Institution" {
-			t.Errorf("Expected institution name 'Test Institution', got '%s'", tx.Institution.Name)
+		if tx.Mapping == nil {
+			t.Errorf("Expected transaction to have an account, got nil")
+		} else if tx.Mapping.LunchMoneyId != 1 {
+			t.Errorf("Expected account ID 1, got %d", tx.Mapping.LunchMoneyId)
+		} else if tx.Mapping.ExternalName != "Test Account" {
+			t.Errorf("Expected account name 'Test Account', got '%s'", tx.Mapping.ExternalName)
 		}
 	}
 }

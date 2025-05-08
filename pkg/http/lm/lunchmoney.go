@@ -25,23 +25,23 @@ func NewLunchMoneyClient(ctx context.Context, apiKey string) (*LunchMoneyClient,
 	}, nil
 }
 
-func (c *LunchMoneyClient) ListInstitutions(ctx context.Context) ([]models.Institution, error) {
-	// Fetch institutions from the LunchMoney API
+func (c *LunchMoneyClient) ListAccounts(ctx context.Context) ([]models.LunchMoneyAccount, error) {
+	// Fetch accounts from the LunchMoney API
 	assets, err := c.client.GetAssets(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check if the transaction's merchant name matches any institution's card name
-	institutions := make([]models.Institution, 0)
+	// Check if the transaction's merchant name matches any account's card name
+	accounts := make([]models.LunchMoneyAccount, 0)
 	for _, asset := range assets {
-		institutions = append(institutions, models.Institution{
-			Id:   asset.ID,
-			Name: asset.Name,
+		accounts = append(accounts, models.LunchMoneyAccount{
+			LunchMoneyId: asset.ID,
+			Name:         asset.Name,
 		})
 	}
 
-	return institutions, nil
+	return accounts, nil
 }
 
 func (c *LunchMoneyClient) ListTransaction(ctx context.Context, filter *lunchmoney.TransactionFilters) ([]models.Transaction, error) {
@@ -59,7 +59,7 @@ func (c *LunchMoneyClient) ListTransaction(ctx context.Context, filter *lunchmon
 				Name:         lmTransaction.Payee,
 				CategoryCode: strconv.FormatInt(lmTransaction.CategoryID, 10),
 			},
-			Amount: &models.Amount{
+			Amount: models.Amount{
 				Value:    lmTransaction.Amount,
 				Currency: lmTransaction.Currency,
 			},
@@ -70,7 +70,7 @@ func (c *LunchMoneyClient) ListTransaction(ctx context.Context, filter *lunchmon
 	return translatedTrns, nil
 }
 
-func (c *LunchMoneyClient) InsertTransactions(ctx context.Context, transactions []*models.TransactionWithInstitution) ([]int64, error) {
+func (c *LunchMoneyClient) InsertTransactions(ctx context.Context, transactions []*models.TransactionWithAccountMapping) ([]int64, error) {
 	var lmTrns []lunchmoney.InsertTransaction
 	for _, transaction := range transactions {
 		// Create a new transaction object for LunchMoney
@@ -80,7 +80,7 @@ func (c *LunchMoneyClient) InsertTransactions(ctx context.Context, transactions 
 			Currency:   strings.ToLower(transaction.Amount.Currency),
 			ExternalID: transaction.ReferenceNumber,
 			Payee:      transaction.Merchant.Name,
-			AssetID:    &transaction.Institution.Id,
+			AssetID:    &transaction.Mapping.LunchMoneyId,
 		})
 	}
 

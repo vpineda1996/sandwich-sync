@@ -68,22 +68,23 @@ func NewWealthsimpleClient(ctx context.Context) (*WealthsimpleClient, error) {
 }
 
 // FetchTransactions implements http.TransactionFetcher.
-func (w *WealthsimpleClient) FetchTransactions(ctx context.Context) ([]models.Transaction, error) {
+func (w *WealthsimpleClient) FetchTransactions(ctx context.Context) ([]models.TransactionWithAccount, error) {
 	accounts, err := w.c.GetAccounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
 
 	log.Info().Msgf("Found %d accounts", len(accounts))
-	var transactions []models.Transaction
+	var transactions []models.TransactionWithAccount
 	from := time.Now().Add(-30 * 24 * time.Hour)
 	until := time.Now()
+
 	for _, account := range accounts {
-		trnsMap, err := w.c.Transactions(ctx, []client.AccountId{client.AccountId(account.Id)}, until, &from)
+		activity, err := w.c.GetActivities(ctx, []client.AccountId{client.AccountId(account.Id)}, &from, &until)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get transactions: %w", err)
 		}
-		trns, ok := trnsMap[client.AccountId(account.Id)]
+		trns, ok := activity[client.AccountId(account.Id)]
 		if !ok {
 			log.Info().Msgf("No transactions found for account %s", account.Id)
 			continue
@@ -91,20 +92,28 @@ func (w *WealthsimpleClient) FetchTransactions(ctx context.Context) ([]models.Tr
 		log.Info().Msgf("Found %d transactions for account %s", len(trns), account.Id)
 
 		for _, trn := range trns {
-			transactions = append(transactions, models.Transaction{
-				ReferenceNumber: trn.Account,
-				Merchant: &models.Merchant{
-					Name:         trn.Description,
-					CategoryCode: trn.Category,
+			desc, err := client.GetActivityDescription(ctx, w.c, &trn)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get transaction description: %w", err)
+			}
+
+			transactions = append(transactions, models.TransactionWithAccount{
+				Transaction: models.Transaction{
+					ReferenceNumber: *trn.CanonicalId,
+					Merchant: &models.Merchant{
+						Name: desc,
+					},
+					Amount: models.Amount{
+						Value:    client.GetFormattedAmount(&trn),
+						Currency: *trn.Currency,
+					},
+					Date: trn.OccurredAt.Format(time.DateOnly),
 				},
-				Amount: &models.Amount{
-					Value:    trn.Amount,
-					Currency: "CAD",
-				},
-				Date: trn.Date.Format(time.DateOnly),
+				SourceAccountName: account.Id,
 			})
 		}
 	}
+
 	log.Info().Msgf("Found %d transactions", len(transactions))
 	return transactions, nil
 }

@@ -10,12 +10,12 @@ import (
 // MockLunchMoneyClient is a mock implementation of the LunchMoneyClient for testing
 type MockLunchMoneyClient struct {
 	// Mock data to return
-	Institutions []models.Institution
+	Accounts     []models.LunchMoneyAccount
 	Transactions []models.Transaction
 	InsertedIDs  []int64
 
 	// Error values to return
-	ListInstitutionsErr   error
+	ListAccountsErr       error
 	ListTransactionErr    error
 	InsertTransactionsErr error
 }
@@ -23,18 +23,18 @@ type MockLunchMoneyClient struct {
 // NewMockLunchMoneyClient creates a new mock LunchMoney client
 func NewMockLunchMoneyClient() *MockLunchMoneyClient {
 	return &MockLunchMoneyClient{
-		Institutions: []models.Institution{},
+		Accounts:     []models.LunchMoneyAccount{},
 		Transactions: []models.Transaction{},
 		InsertedIDs:  []int64{},
 	}
 }
 
-// ListInstitutions returns the mock institutions
-func (m *MockLunchMoneyClient) ListInstitutions(ctx context.Context) ([]models.Institution, error) {
-	if m.ListInstitutionsErr != nil {
-		return nil, m.ListInstitutionsErr
+// ListAccounts returns the mock accounts
+func (m *MockLunchMoneyClient) ListAccounts(ctx context.Context) ([]models.LunchMoneyAccount, error) {
+	if m.ListAccountsErr != nil {
+		return nil, m.ListAccountsErr
 	}
-	return m.Institutions, nil
+	return m.Accounts, nil
 }
 
 // ListTransaction returns the mock transactions
@@ -46,7 +46,7 @@ func (m *MockLunchMoneyClient) ListTransaction(ctx context.Context, filter *lunc
 }
 
 // InsertTransactions returns the mock inserted IDs
-func (m *MockLunchMoneyClient) InsertTransactions(ctx context.Context, transactions []*models.TransactionWithInstitution) ([]int64, error) {
+func (m *MockLunchMoneyClient) InsertTransactions(ctx context.Context, transactions []*models.TransactionWithAccountMapping) ([]int64, error) {
 	if m.InsertTransactionsErr != nil {
 		return nil, m.InsertTransactionsErr
 	}
