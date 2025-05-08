@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/vpineda1996/sandwich-sync/cmd/cli"
+	"github.com/vpnda/sandwich-sync/cmd/cli"
 )
 
 func main() {

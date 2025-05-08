@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -40,28 +40,19 @@ func New(dbPath string) (*DB, error) {
 func (db *DB) Initialize() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS transactions (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		reference_number TEXT,
-		activity_type TEXT,
+		reference_number TEXT PRIMARY KEY,
 		amount_value TEXT,
 		amount_currency TEXT,
-		activity_status TEXT,
-		activity_category TEXT,
-		activity_classification TEXT,
-		card_number TEXT,
 		merchant_name TEXT,
 		merchant_category_code TEXT,
-		merchant_category_description TEXT,
-		merchant_category TEXT,
 		merchant_city TEXT,
 		merchant_state_province TEXT,
-		merchant_postal_code TEXT,
-		merchant_country_code TEXT,
 		transaction_date TEXT,
 		activity_category_code TEXT,
 		customer_id TEXT,
 		posted_date TEXT,
 		name_on_card TEXT,
+		source_account_name TEXT,
 		lunchmoney_id INTEGER,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	)
@@ -72,20 +63,94 @@ func (db *DB) Initialize() error {
 		return fmt.Errorf("failed to create transactions table: %w", err)
 	}
 
+	// Add source account name column if it doesn't exist
+	query = `
+	select count(*) from
+	pragma_table_info('transactions')
+	where name='source_account_name';
+	`
+	var count int
+	err = db.QueryRow(query).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to check for source_account_name column: %w", err)
+	}
+
+	if count == 0 {
+		query = `
+		ALTER TABLE transactions ADD COLUMN source_account_name TEXT;
+		`
+		_, err = db.Exec(query)
+		if err != nil {
+			return fmt.Errorf("failed to add source_account_name column: %w", err)
+		}
+	}
+
+	query = `
+	CREATE TABLE IF NOT EXISTS account_mappings (
+		external_name TEXT PRIMARY KEY,
+		lunchmoney_account_id TEXT,
+		is_plaid BOOLEAN
+	)
+	`
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("failed to create account_mappings table: %w", err)
+	}
+
 	return nil
 }
 
+func (db *DB) UpsertAccountMapping(am *models.AccountMapping) error {
+	query := `
+	INSERT INTO account_mappings (external_name, lunchmoney_account_id, is_plaid)
+	VALUES (?, ?, ?)
+	ON CONFLICT(external_name) DO UPDATE SET
+		lunchmoney_account_id = excluded.lunchmoney_account_id,
+		is_plaid = excluded.is_plaid
+	`
+
+	_, err := db.Exec(query, am.ExternalName, am.LunchMoneyId, am.IsPlaid)
+	if err != nil {
+		return fmt.Errorf("failed to upsert account mapping: %w", err)
+	}
+
+	return nil
+}
+
+func (db *DB) GetAccountMapping(externalId string) (*models.AccountMapping, error) {
+	query := `
+	SELECT 
+		external_name, lunchmoney_account_id, is_plaid
+	FROM account_mappings
+	WHERE external_name = ?
+	LIMIT 1
+	`
+
+	var am models.AccountMapping
+	err := db.QueryRow(query, externalId).Scan(
+		&am.ExternalName,
+		&am.LunchMoneyId,
+		&am.IsPlaid,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get account mapping: %w", err)
+	}
+
+	return &am, nil
+}
+
 // UpdateTransaction updates an existing transaction in the database
-func (db *DB) UpdateTransaction(tx *models.Transaction) error {
+func (db *DB) UpdateTransaction(tx *models.TransactionWithAccount) error {
 	query := `
 	UPDATE transactions
 	SET 
-		activity_type = ?, amount_value = ?, amount_currency = ?, activity_status = ?, 
-		activity_category = ?, activity_classification = ?, card_number = ?, merchant_name = ?, 
-		merchant_category_code = ?, merchant_category_description = ?, merchant_category = ?, 
-		merchant_city = ?, merchant_state_province = ?, merchant_postal_code = ?, 
-		merchant_country_code = ?, transaction_date = ?, activity_category_code = ?, 
-		customer_id = ?, posted_date = ?, name_on_card = ?
+		amount_value = ?, amount_currency = ?, merchant_name = ?, 
+		merchant_category_code = ?,
+		merchant_city = ?, merchant_state_province = ?, 
+		transaction_date = ?, posted_date = ?, source_account_name = ?
 		` + func() string {
 		if tx.LunchMoneyID != 0 {
 			return `, lunchmoney_id = ? `
@@ -96,26 +161,15 @@ func (db *DB) UpdateTransaction(tx *models.Transaction) error {
 	`
 
 	args := []interface{}{
-		tx.ActivityType,
 		tx.Amount.Value,
 		tx.Amount.Currency,
-		tx.ActivityStatus,
-		tx.ActivityCategory,
-		tx.ActivityClassification,
-		tx.CardNumber,
 		tx.Merchant.Name,
 		tx.Merchant.CategoryCode,
-		tx.Merchant.CategoryDescription,
-		tx.Merchant.Category,
 		tx.Merchant.Address.City,
 		tx.Merchant.Address.StateProvince,
-		tx.Merchant.Address.PostalCode,
-		tx.Merchant.Address.CountryCode,
 		tx.Date,
-		tx.ActivityCategoryCode,
-		tx.CustomerID,
 		tx.PostedDate,
-		tx.Name.NameOnCard,
+		tx.SourceAccountName,
 	}
 
 	if tx.LunchMoneyID != 0 {
@@ -142,7 +196,7 @@ func (db *DB) UpdateTransaction(tx *models.Transaction) error {
 }
 
 // SaveTransaction saves a transaction to the database
-func (db *DB) SaveTransaction(tx *models.Transaction) error {
+func (db *DB) SaveTransaction(tx *models.TransactionWithAccount) error {
 	// Check if a transaction with the same reference number already exists
 	existingTx, err := db.GetTransactionByReference(tx.ReferenceNumber)
 	if err != nil {
@@ -165,37 +219,25 @@ func (db *DB) SaveTransaction(tx *models.Transaction) error {
 	// Insert a new transaction
 	query := `
 	INSERT INTO transactions (
-		reference_number, activity_type, amount_value, amount_currency,
-		activity_status, activity_category, activity_classification, card_number,
-		merchant_name, merchant_category_code, merchant_category_description, merchant_category,
-		merchant_city, merchant_state_province, merchant_postal_code, merchant_country_code,
-		transaction_date, activity_category_code, customer_id, posted_date, name_on_card, lunchmoney_id
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		reference_number, amount_value, amount_currency,
+		merchant_name, merchant_category_code,
+		merchant_city, merchant_state_province,
+		transaction_date, posted_date, source_account_name, lunchmoney_id
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err = db.Exec(
 		query,
 		tx.ReferenceNumber,
-		tx.ActivityType,
 		tx.Amount.Value,
 		tx.Amount.Currency,
-		tx.ActivityStatus,
-		tx.ActivityCategory,
-		tx.ActivityClassification,
-		tx.CardNumber,
 		tx.Merchant.Name,
 		tx.Merchant.CategoryCode,
-		tx.Merchant.CategoryDescription,
-		tx.Merchant.Category,
 		tx.Merchant.Address.City,
 		tx.Merchant.Address.StateProvince,
-		tx.Merchant.Address.PostalCode,
-		tx.Merchant.Address.CountryCode,
 		tx.Date,
-		tx.ActivityCategoryCode,
-		tx.CustomerID,
 		tx.PostedDate,
-		tx.Name.NameOnCard,
+		tx.SourceAccountName,
 		tx.LunchMoneyID,
 	)
 
@@ -207,14 +249,13 @@ func (db *DB) SaveTransaction(tx *models.Transaction) error {
 }
 
 // GetTransactions retrieves all transactions from the database
-func (db *DB) GetTransactions() ([]*models.Transaction, error) {
+func (db *DB) GetTransactions() ([]*models.TransactionWithAccount, error) {
 	query := `
 	SELECT 
-		reference_number, activity_type, amount_value, amount_currency,
-		activity_status, activity_category, activity_classification, card_number,
-		merchant_name, merchant_category_code, merchant_category_description, merchant_category,
-		merchant_city, merchant_state_province, merchant_postal_code, merchant_country_code,
-		transaction_date, activity_category_code, customer_id, posted_date, name_on_card, lunchmoney_id
+		reference_number, amount_value, amount_currency,
+		merchant_name, merchant_category_code,
+		merchant_city, merchant_state_province,
+		transaction_date, posted_date, source_account_name, lunchmoney_id
 	FROM transactions
 	ORDER BY transaction_date DESC
 	`
@@ -225,38 +266,34 @@ func (db *DB) GetTransactions() ([]*models.Transaction, error) {
 	}
 	defer rows.Close()
 
-	var transactions []*models.Transaction
+	var transactions []*models.TransactionWithAccount
 	for rows.Next() {
-		tx := &models.Transaction{
-			Amount:   &models.Amount{},
-			Merchant: &models.Merchant{Address: &models.Address{}},
-			Name:     &models.Name{},
+		tx := &models.TransactionWithAccount{
+			Transaction: models.Transaction{
+				Amount:   models.Amount{},
+				Merchant: &models.Merchant{Address: &models.Address{}},
+			},
 		}
+
+		var nullStr sql.NullString
 
 		err := rows.Scan(
 			&tx.ReferenceNumber,
-			&tx.ActivityType,
 			&tx.Amount.Value,
 			&tx.Amount.Currency,
-			&tx.ActivityStatus,
-			&tx.ActivityCategory,
-			&tx.ActivityClassification,
-			&tx.CardNumber,
 			&tx.Merchant.Name,
 			&tx.Merchant.CategoryCode,
-			&tx.Merchant.CategoryDescription,
-			&tx.Merchant.Category,
 			&tx.Merchant.Address.City,
 			&tx.Merchant.Address.StateProvince,
-			&tx.Merchant.Address.PostalCode,
-			&tx.Merchant.Address.CountryCode,
 			&tx.Date,
-			&tx.ActivityCategoryCode,
-			&tx.CustomerID,
 			&tx.PostedDate,
-			&tx.Name.NameOnCard,
+			&nullStr,
 			&tx.LunchMoneyID,
 		)
+
+		if nullStr.Valid {
+			tx.SourceAccountName = nullStr.String
+		}
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan transaction: %w", err)
@@ -273,49 +310,44 @@ func (db *DB) GetTransactions() ([]*models.Transaction, error) {
 }
 
 // GetTransactionByReference retrieves a transaction by its reference number
-func (db *DB) GetTransactionByReference(referenceNumber string) (*models.Transaction, error) {
+func (db *DB) GetTransactionByReference(referenceNumber string) (*models.TransactionWithAccount, error) {
 	query := `
 	SELECT
-		reference_number, activity_type, amount_value, amount_currency,
-		activity_status, activity_category, activity_classification, card_number,
-		merchant_name, merchant_category_code, merchant_category_description, merchant_category,
-		merchant_city, merchant_state_province, merchant_postal_code, merchant_country_code,
-		transaction_date, activity_category_code, customer_id, posted_date, name_on_card, lunchmoney_id
+		reference_number, amount_value, amount_currency,
+		merchant_name, merchant_category_code,
+		merchant_city, merchant_state_province,
+		transaction_date, posted_date, source_account_name, lunchmoney_id
 	FROM transactions
 	WHERE reference_number = ?
 	LIMIT 1
 	`
 
-	tx := &models.Transaction{
-		Amount:   &models.Amount{},
-		Merchant: &models.Merchant{Address: &models.Address{}},
-		Name:     &models.Name{},
+	tx := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			Amount:   models.Amount{},
+			Merchant: &models.Merchant{Address: &models.Address{}},
+		},
 	}
+
+	var nullStr sql.NullString
 
 	err := db.QueryRow(query, referenceNumber).Scan(
 		&tx.ReferenceNumber,
-		&tx.ActivityType,
 		&tx.Amount.Value,
 		&tx.Amount.Currency,
-		&tx.ActivityStatus,
-		&tx.ActivityCategory,
-		&tx.ActivityClassification,
-		&tx.CardNumber,
 		&tx.Merchant.Name,
 		&tx.Merchant.CategoryCode,
-		&tx.Merchant.CategoryDescription,
-		&tx.Merchant.Category,
 		&tx.Merchant.Address.City,
 		&tx.Merchant.Address.StateProvince,
-		&tx.Merchant.Address.PostalCode,
-		&tx.Merchant.Address.CountryCode,
 		&tx.Date,
-		&tx.ActivityCategoryCode,
-		&tx.CustomerID,
 		&tx.PostedDate,
-		&tx.Name.NameOnCard,
+		&nullStr,
 		&tx.LunchMoneyID,
 	)
+
+	if nullStr.Valid {
+		tx.SourceAccountName = nullStr.String
+	}
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -348,7 +380,7 @@ func (db *DB) RemoveTransaction(referenceNumber string) error {
 }
 
 // AddManualTransaction adds a manually created transaction to the database
-func (db *DB) AddManualTransaction(tx *models.Transaction) error {
+func (db *DB) AddManualTransaction(tx *models.TransactionWithAccount) error {
 	// Check if transaction with this reference number already exists
 	existingTx, err := db.GetTransactionByReference(tx.ReferenceNumber)
 	if err != nil {

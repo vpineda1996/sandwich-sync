@@ -1,4 +1,4 @@
-package http
+package rogers
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"net/http/cookiejar"
 
 	"github.com/samber/lo"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 type RogersBankClient struct {
@@ -133,7 +133,7 @@ func (c *RogersBankClient) IsAuthenticated() bool {
 	return c.accountId != "" && c.customerId != ""
 }
 
-func (c *RogersBankClient) FetchTransactions(ctx context.Context) ([]*models.Transaction, error) {
+func (c *RogersBankClient) FetchTransactions(ctx context.Context) ([]models.TransactionWithAccount, error) {
 	if !c.IsAuthenticated() {
 		return nil, fmt.Errorf("client is not authenticated")
 	}
@@ -158,7 +158,16 @@ func (c *RogersBankClient) FetchTransactions(ctx context.Context) ([]*models.Tra
 		return nil, fmt.Errorf("failed to parse response: %w, body: %s", err, string(body))
 	}
 
-	return transactions.Activities, nil
+	var result []models.TransactionWithAccount
+	for _, activity := range transactions.Activities {
+		tx := models.TransactionWithAccount{
+			Transaction:       activity,
+			SourceAccountName: "Rogers Bank",
+		}
+		result = append(result, tx)
+	}
+
+	return result, nil
 }
 
 func getCommonHeaders() http.Header {

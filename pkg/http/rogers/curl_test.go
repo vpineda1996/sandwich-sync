@@ -1,4 +1,4 @@
-package http
+package rogers
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 func TestExtractCookies(t *testing.T) {
@@ -80,11 +80,10 @@ func TestFetchTransactions(t *testing.T) {
 		}
 
 		// Create a sample response
-		transactions := []*models.Transaction{
+		transactions := []models.Transaction{
 			{
 				ReferenceNumber: "TX123",
-				ActivityType:    "TRANS",
-				Amount: &models.Amount{
+				Amount: models.Amount{
 					Value:    "25.99",
 					Currency: "USD",
 				},

@@ -10,12 +10,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/vpineda1996/sandwich-sync/db"
-	"github.com/vpineda1996/sandwich-sync/pkg/config"
-	"github.com/vpineda1996/sandwich-sync/pkg/http"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
-	"github.com/vpineda1996/sandwich-sync/pkg/parser"
-	"github.com/vpineda1996/sandwich-sync/pkg/services"
+	"github.com/vpnda/sandwich-sync/db"
+	"github.com/vpnda/sandwich-sync/pkg/config"
+	"github.com/vpnda/sandwich-sync/pkg/http/rogers"
+	"github.com/vpnda/sandwich-sync/pkg/http/ws"
+	"github.com/vpnda/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/parser"
+	"github.com/vpnda/sandwich-sync/pkg/services"
 )
 
 var (
@@ -95,7 +96,7 @@ func runREPL() {
 	}
 
 	// Create HTTP client
-	client := http.NewCurlClient()
+	client := rogers.NewCurlClient()
 
 	// Start REPL
 	scanner := bufio.NewScanner(os.Stdin)
@@ -150,7 +151,8 @@ func runREPL() {
 		}
 
 		if strings.HasPrefix(trimmedLine, "fetch") && !isMultiline {
-			fetchTransactions(database)
+			fetchTransactionsRogers(database)
+			fetchTransactionsWs(database)
 			continue
 		}
 
@@ -188,13 +190,28 @@ func runREPL() {
 	}
 }
 
-func fetchTransactions(database *db.DB) {
+func fetchTransactionsWs(database *db.DB) {
+	client, err := ws.NewWealthsimpleClient(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating Wealthsimple client: %v\n", err)
+		return
+	}
+
+	transactions, err := client.FetchTransactions(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
+		return
+	}
+	insertTransactionsToDb(database, transactions)
+}
+
+func fetchTransactionsRogers(database *db.DB) {
 	deviceId, err := config.GetRogersDeviceId()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting Rogers device ID: %v\n", err)
 		return
 	}
-	client := http.NewRogersBankClient(deviceId)
+	client := rogers.NewRogersBankClient(deviceId)
 
 	username, password, err := config.GetRogersCredentials()
 	if err != nil {
@@ -213,7 +230,10 @@ func fetchTransactions(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
 		return
 	}
+	insertTransactionsToDb(database, transactions)
+}
 
+func insertTransactionsToDb(database *db.DB, transactions []models.TransactionWithAccount) {
 	for _, tx := range transactions {
 		if tx, err := database.GetTransactionByReference(tx.ReferenceNumber); tx != nil && err == nil {
 			fmt.Printf("Transaction %s already exists in the database\n", tx.ReferenceNumber)
@@ -223,7 +243,7 @@ func fetchTransactions(database *db.DB) {
 			continue
 		}
 
-		if err := database.SaveTransaction(tx); err != nil {
+		if err := database.SaveTransaction(&tx); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
 			continue
 		}
@@ -253,7 +273,7 @@ func syncTransactions(database *db.DB) {
 	}
 }
 
-func processCurlCommand(input string, client *http.CurlClient, database *db.DB) {
+func processCurlCommand(input string, client *rogers.CurlClient, database *db.DB) {
 	// Parse curl command
 	cmd, err := parser.ParseCurlCommand(input)
 	if err != nil {
@@ -292,7 +312,7 @@ func processCurlCommand(input string, client *http.CurlClient, database *db.DB) 
 
 	// Save transactions to database
 	for _, tx := range transactions {
-		if err := database.SaveTransaction(tx); err != nil {
+		if err := database.SaveTransaction(&tx); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
 			continue
 		}
@@ -314,13 +334,14 @@ func listTransactions(database *db.DB) {
 	}
 
 	fmt.Printf("Found %d transactions:\n\n", len(transactions))
-	fmt.Printf("%-30s %-15s %-30s %-15s %-15s\n", "Reference Number", "Amount", "Merchant Name", "Date", "LunchMoney ID")
-	fmt.Println(strings.Repeat("-", 110))
+	fmt.Printf("%-20s %-30s %-15s %-30s %-15s %-15s\n", "SourceAccount", "Reference Number", "Amount", "Merchant Name", "Date", "LunchMoney ID")
+	fmt.Println(strings.Repeat("-", 130))
 	for _, tx := range transactions {
-		fmt.Printf("%-30s %-15s %-30s %-15s %-15d\n",
-			tx.ReferenceNumber,
+		fmt.Printf("%-20s %-30s %-15s %-30s %-15s %-15d\n",
+			tx.SourceAccountName[:min(20, len(tx.SourceAccountName))],
+			tx.ReferenceNumber[:min(30, len(tx.ReferenceNumber))],
 			tx.Amount.Value+" "+tx.Amount.Currency,
-			tx.Merchant.Name,
+			tx.Merchant.Name[:min(30, len(tx.Merchant.Name))],
 			tx.Date,
 			tx.LunchMoneyID)
 	}
@@ -376,24 +397,19 @@ func addTransaction(input string, database *db.DB) {
 	}
 
 	// Create transaction
-	tx := &models.Transaction{
-		ReferenceNumber:        referenceNumber,
-		ActivityType:           "TRANS",
-		Amount:                 &models.Amount{Value: amountValue, Currency: currency},
-		ActivityStatus:         "APPROVED",
-		ActivityCategory:       category,
-		ActivityClassification: "PURCHASE",
-		CardNumber:             "************0000", // Masked card number
-		Merchant: &models.Merchant{
-			Name:     merchantName,
-			Category: category,
-			Address:  &models.Address{},
+	tx := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: referenceNumber,
+			Amount:          models.Amount{Value: amountValue, Currency: currency},
+			Merchant: &models.Merchant{
+				Name:         merchantName,
+				CategoryCode: category,
+				Address:      &models.Address{},
+			},
+			Date:       date,
+			PostedDate: date,
 		},
-		Date:                 date,
-		ActivityCategoryCode: "0001",
-		CustomerID:           "MANUAL",
-		PostedDate:           date,
-		Name:                 &models.Name{NameOnCard: "MANUAL ENTRY"},
+		SourceAccountName: "Manual Entry",
 	}
 
 	// Save transaction

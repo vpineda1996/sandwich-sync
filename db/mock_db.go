@@ -3,13 +3,15 @@ package db
 import (
 	"fmt"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // MockDB is a mock implementation of the DB for testing
 type MockDB struct {
 	// Mock data storage
-	Transactions map[string]*models.Transaction
+	Transactions map[string]*models.TransactionWithAccount
+	// Mock data for account mappings
+	AccountMappings map[string]*models.AccountMapping
 
 	// Error values to return
 	GetTransactionsErr           error
@@ -18,22 +20,52 @@ type MockDB struct {
 	UpdateTransactionErr         error
 	RemoveTransactionErr         error
 	AddManualTransactionErr      error
+
+	GetAccountMappingErr    error
+	UpsertAccountMappingErr error
+}
+
+// GetAccountMapping implements DBInterface.
+func (m *MockDB) GetAccountMapping(externalId string) (*models.AccountMapping, error) {
+	if m.GetAccountMappingErr != nil {
+		return nil, m.GetAccountMappingErr
+	}
+
+	if am, ok := m.AccountMappings[externalId]; ok {
+		return am, nil
+	}
+
+	return nil, nil
+}
+
+// UpsertAccountMapping implements DBInterface.
+func (m *MockDB) UpsertAccountMapping(am *models.AccountMapping) error {
+	if m.UpsertAccountMappingErr != nil {
+		return m.UpsertAccountMappingErr
+	}
+
+	if m.AccountMappings == nil {
+		m.AccountMappings = make(map[string]*models.AccountMapping)
+	}
+
+	m.AccountMappings[am.ExternalName] = am
+	return nil
 }
 
 // NewMockDB creates a new mock database
 func NewMockDB() *MockDB {
 	return &MockDB{
-		Transactions: make(map[string]*models.Transaction),
+		Transactions: make(map[string]*models.TransactionWithAccount),
 	}
 }
 
 // GetTransactions returns all transactions in the mock database
-func (m *MockDB) GetTransactions() ([]*models.Transaction, error) {
+func (m *MockDB) GetTransactions() ([]*models.TransactionWithAccount, error) {
 	if m.GetTransactionsErr != nil {
 		return nil, m.GetTransactionsErr
 	}
 
-	transactions := make([]*models.Transaction, 0, len(m.Transactions))
+	transactions := make([]*models.TransactionWithAccount, 0, len(m.Transactions))
 	for _, tx := range m.Transactions {
 		transactions = append(transactions, tx)
 	}
@@ -42,7 +74,7 @@ func (m *MockDB) GetTransactions() ([]*models.Transaction, error) {
 }
 
 // GetTransactionByReference returns a transaction by its reference number
-func (m *MockDB) GetTransactionByReference(referenceNumber string) (*models.Transaction, error) {
+func (m *MockDB) GetTransactionByReference(referenceNumber string) (*models.TransactionWithAccount, error) {
 	if m.GetTransactionByReferenceErr != nil {
 		return nil, m.GetTransactionByReferenceErr
 	}
@@ -56,7 +88,7 @@ func (m *MockDB) GetTransactionByReference(referenceNumber string) (*models.Tran
 }
 
 // SaveTransaction saves a transaction to the mock database
-func (m *MockDB) SaveTransaction(tx *models.Transaction) error {
+func (m *MockDB) SaveTransaction(tx *models.TransactionWithAccount) error {
 	if m.SaveTransactionErr != nil {
 		return m.SaveTransactionErr
 	}
@@ -66,7 +98,7 @@ func (m *MockDB) SaveTransaction(tx *models.Transaction) error {
 }
 
 // UpdateTransaction updates a transaction in the mock database
-func (m *MockDB) UpdateTransaction(tx *models.Transaction) error {
+func (m *MockDB) UpdateTransaction(tx *models.TransactionWithAccount) error {
 	if m.UpdateTransactionErr != nil {
 		return m.UpdateTransactionErr
 	}
@@ -94,7 +126,7 @@ func (m *MockDB) RemoveTransaction(referenceNumber string) error {
 }
 
 // AddManualTransaction adds a manually created transaction to the mock database
-func (m *MockDB) AddManualTransaction(tx *models.Transaction) error {
+func (m *MockDB) AddManualTransaction(tx *models.TransactionWithAccount) error {
 	if m.AddManualTransactionErr != nil {
 		return m.AddManualTransactionErr
 	}

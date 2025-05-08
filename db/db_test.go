@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 func TestNew(t *testing.T) {
@@ -59,6 +59,15 @@ func TestInitialize(t *testing.T) {
 	if tableName != "transactions" {
 		t.Fatalf("Expected table name 'transactions', got '%s'", tableName)
 	}
+
+	// Verify the account mappings table was created
+	err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='account_mappings'").Scan(&tableName)
+	if err != nil {
+		t.Fatalf("Failed to query for account_mappings table: %v", err)
+	}
+	if tableName != "account_mappings" {
+		t.Fatalf("Expected table name 'account_mappings', got '%s'", tableName)
+	}
 }
 
 func TestSaveAndGetTransaction(t *testing.T) {
@@ -83,32 +92,24 @@ func TestSaveAndGetTransaction(t *testing.T) {
 	}
 
 	// Create a test transaction
-	tx := &models.Transaction{
-		ReferenceNumber: "TEST123",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "25.99",
-			Currency: "USD",
-		},
-		ActivityStatus:         "APPROVED",
-		ActivityCategory:       "PURCHASE",
-		ActivityClassification: "PURCHASE",
-		CardNumber:             "************1234",
-		Merchant: &models.Merchant{
-			Name:     "Test Merchant",
-			Category: "RETAIL",
-			Address: &models.Address{
-				City:          "Test City",
-				StateProvince: "TS",
-				PostalCode:    "12345",
-				CountryCode:   "US",
+	tx := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TEST123",
+			Amount: models.Amount{
+				Value:    "25.99",
+				Currency: "USD",
 			},
+			Merchant: &models.Merchant{
+				Name: "Test Merchant",
+				Address: &models.Address{
+					City:          "Test City",
+					StateProvince: "TS",
+				},
+			},
+			Date:       "2025-04-29",
+			PostedDate: "2025-04-29",
 		},
-		Date:                 "2025-04-29",
-		ActivityCategoryCode: "0001",
-		CustomerID:           "TEST",
-		PostedDate:           "2025-04-29",
-		Name:                 &models.Name{NameOnCard: "TEST USER"},
+		SourceAccountName: "Test Account",
 	}
 
 	// Test saving the transaction
@@ -135,6 +136,9 @@ func TestSaveAndGetTransaction(t *testing.T) {
 	if retrievedTx.Merchant.Name != tx.Merchant.Name {
 		t.Errorf("Expected merchant name '%s', got '%s'", tx.Merchant.Name, retrievedTx.Merchant.Name)
 	}
+	if retrievedTx.SourceAccountName != tx.SourceAccountName {
+		t.Errorf("Expected source account name '%s', got '%s'", tx.SourceAccountName, retrievedTx.SourceAccountName)
+	}
 }
 
 func TestUpdateTransaction(t *testing.T) {
@@ -159,32 +163,24 @@ func TestUpdateTransaction(t *testing.T) {
 	}
 
 	// Create a test transaction
-	tx := &models.Transaction{
-		ReferenceNumber: "TEST123",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "25.99",
-			Currency: "USD",
-		},
-		ActivityStatus:         "APPROVED",
-		ActivityCategory:       "PURCHASE",
-		ActivityClassification: "PURCHASE",
-		CardNumber:             "************1234",
-		Merchant: &models.Merchant{
-			Name:     "Test Merchant",
-			Category: "RETAIL",
-			Address: &models.Address{
-				City:          "Test City",
-				StateProvince: "TS",
-				PostalCode:    "12345",
-				CountryCode:   "US",
+	tx := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TEST123",
+			Amount: models.Amount{
+				Value:    "25.99",
+				Currency: "USD",
 			},
+			Merchant: &models.Merchant{
+				Name: "Test Merchant",
+				Address: &models.Address{
+					City:          "Test City",
+					StateProvince: "TS",
+				},
+			},
+			Date:       "2025-04-29",
+			PostedDate: "2025-04-29",
 		},
-		Date:                 "2025-04-29",
-		ActivityCategoryCode: "0001",
-		CustomerID:           "TEST",
-		PostedDate:           "2025-04-29",
-		Name:                 &models.Name{NameOnCard: "TEST USER"},
+		SourceAccountName: "Test Account",
 	}
 
 	// Save the transaction
@@ -218,6 +214,9 @@ func TestUpdateTransaction(t *testing.T) {
 	if retrievedTx.LunchMoneyID != 12345 {
 		t.Errorf("Expected LunchMoneyID 12345, got %d", retrievedTx.LunchMoneyID)
 	}
+	if retrievedTx.SourceAccountName != tx.SourceAccountName {
+		t.Errorf("Expected source account name '%s', got '%s'", tx.SourceAccountName, retrievedTx.SourceAccountName)
+	}
 }
 
 func TestRemoveTransaction(t *testing.T) {
@@ -242,32 +241,24 @@ func TestRemoveTransaction(t *testing.T) {
 	}
 
 	// Create a test transaction
-	tx := &models.Transaction{
-		ReferenceNumber: "TEST123",
-		ActivityType:    "TRANS",
-		Amount: &models.Amount{
-			Value:    "25.99",
-			Currency: "USD",
-		},
-		ActivityStatus:         "APPROVED",
-		ActivityCategory:       "PURCHASE",
-		ActivityClassification: "PURCHASE",
-		CardNumber:             "************1234",
-		Merchant: &models.Merchant{
-			Name:     "Test Merchant",
-			Category: "RETAIL",
-			Address: &models.Address{
-				City:          "Test City",
-				StateProvince: "TS",
-				PostalCode:    "12345",
-				CountryCode:   "US",
+	tx := &models.TransactionWithAccount{
+		Transaction: models.Transaction{
+			ReferenceNumber: "TEST123",
+			Amount: models.Amount{
+				Value:    "25.99",
+				Currency: "USD",
 			},
+			Merchant: &models.Merchant{
+				Name: "Test Merchant",
+				Address: &models.Address{
+					City:          "Test City",
+					StateProvince: "TS",
+				},
+			},
+			Date:       "2025-04-29",
+			PostedDate: "2025-04-29",
 		},
-		Date:                 "2025-04-29",
-		ActivityCategoryCode: "0001",
-		CustomerID:           "TEST",
-		PostedDate:           "2025-04-29",
-		Name:                 &models.Name{NameOnCard: "TEST USER"},
+		SourceAccountName: "Test Account",
 	}
 
 	// Save the transaction
@@ -287,5 +278,55 @@ func TestRemoveTransaction(t *testing.T) {
 	}
 	if retrievedTx != nil {
 		t.Errorf("Expected transaction to be removed, but it still exists")
+	}
+}
+func TestSaveAndGetAccountMapping(t *testing.T) {
+	// Create a temporary database file
+	tempFile, err := os.CreateTemp("", "test-db-*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	// Create a new database
+	db, err := New(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Initialize the database
+	if err := db.Initialize(); err != nil {
+		t.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	// Create a test account mapping
+	accountMapping := &models.AccountMapping{
+		ExternalName: "Test External Account",
+		LunchMoneyId: 12345,
+		IsPlaid:      true,
+	}
+
+	// Test saving the account mapping
+	if err := db.UpsertAccountMapping(accountMapping); err != nil {
+		t.Fatalf("Failed to save account mapping: %v", err)
+	}
+
+	// Test retrieving the account mapping
+	retrievedMapping, err := db.GetAccountMapping("Test External Account")
+	if err != nil {
+		t.Fatalf("Failed to retrieve account mapping: %v", err)
+	}
+
+	// Verify the account mapping was retrieved correctly
+	if retrievedMapping.ExternalName != accountMapping.ExternalName {
+		t.Errorf("Expected external name '%s', got '%s'", accountMapping.ExternalName, retrievedMapping.ExternalName)
+	}
+	if retrievedMapping.LunchMoneyId != accountMapping.LunchMoneyId {
+		t.Errorf("Expected LunchMoneyId '%d', got '%d'", accountMapping.LunchMoneyId, retrievedMapping.LunchMoneyId)
+	}
+	if retrievedMapping.IsPlaid != accountMapping.IsPlaid {
+		t.Errorf("Expected IsPlaid '%v', got '%v'", accountMapping.IsPlaid, retrievedMapping.IsPlaid)
 	}
 }

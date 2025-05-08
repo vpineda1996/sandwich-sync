@@ -1,17 +1,17 @@
-package http
+package lm
 
 import (
 	"context"
 
 	"github.com/icco/lunchmoney"
-	"github.com/vpineda1996/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // LunchMoneyClientInterface defines the interface for LunchMoney API operations
 type LunchMoneyClientInterface interface {
-	ListInstitutions(ctx context.Context) ([]models.Institution, error)
+	ListAccounts(ctx context.Context) ([]models.LunchMoneyAccount, error)
 	ListTransaction(ctx context.Context, filter *lunchmoney.TransactionFilters) ([]models.Transaction, error)
-	InsertTransactions(ctx context.Context, transactions []*models.TransactionWithInstitution) ([]int64, error)
+	InsertTransactions(ctx context.Context, transactions []*models.TransactionWithAccountMapping) ([]int64, error)
 }
 
 // Ensure LunchMoneyClient implements LunchMoneyClientInterface
