@@ -13,6 +13,7 @@ import (
 	"github.com/vpnda/sandwich-sync/db"
 	"github.com/vpnda/sandwich-sync/pkg/config"
 	"github.com/vpnda/sandwich-sync/pkg/http/rogers"
+	"github.com/vpnda/sandwich-sync/pkg/http/scotia"
 	"github.com/vpnda/sandwich-sync/pkg/http/ws"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 	"github.com/vpnda/sandwich-sync/pkg/parser"
@@ -151,8 +152,7 @@ func runREPL() {
 		}
 
 		if strings.HasPrefix(trimmedLine, "fetch") && !isMultiline {
-			fetchTransactionsRogers(database)
-			fetchTransactionsWs(database)
+			processTransactionFetch(trimmedLine, database)
 			continue
 		}
 
@@ -188,6 +188,48 @@ func runREPL() {
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
 	}
+}
+
+func processTransactionFetch(trimmedLine string, database *db.DB) {
+	// Parse the fetch command
+	parts := strings.Fields(trimmedLine)
+	if len(parts) < 2 {
+		fmt.Println("Invalid fetch command format.")
+		fmt.Println("Usage: fetch <type>")
+		fmt.Println("Example: fetch wealthsimple")
+		return
+	}
+
+	fetchType := parts[1]
+
+	switch fetchType {
+	case "wealthsimple":
+		fetchTransactionsWs(database)
+	case "rogers":
+		fetchTransactionsRogers(database)
+	case "scotia":
+		fetchTransactionsScotia(database)
+	default:
+		fmt.Println("Unknown fetch type. Supported types are: wealthsimple, rogers, scotia")
+	}
+}
+
+func fetchTransactionsScotia(database *db.DB) {
+	client, err := scotia.NewScotiaClient()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating Scotia client: %v\n", err)
+		return
+	}
+	if err := client.AuthenticateDynamic(context.Background()); err != nil {
+		fmt.Fprintf(os.Stderr, "Error authenticating Scotia client: %v\n", err)
+		return
+	}
+	transactions, err := client.FetchTransactions(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
+		return
+	}
+	insertTransactionsToDb(database, transactions)
 }
 
 func fetchTransactionsWs(database *db.DB) {
@@ -449,7 +491,8 @@ func printHelp() {
 	fmt.Println("  help                 - Show this help message")
 	fmt.Println("  config               - Show the current configuration")
 	fmt.Println("  list                 - List all transactions in the database")
-	fmt.Println("  fetch                - Fetch transactions from Rogers Bank")
+	fmt.Println("  fetch <type>         - Fetch transactions from either 'wealthsimple', ")
+	fmt.Println("                         'rogers', or 'scotia'")
 	fmt.Println("  sync                 - Sync database with LunchMoney API")
 	fmt.Println("  add <ref> <amount> <currency> <merchant> <date> [<category>]")
 	fmt.Println("                       - Add a transaction manually")

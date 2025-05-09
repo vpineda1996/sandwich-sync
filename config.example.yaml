@@ -9,4 +9,14 @@ rogers:
   username: "<YOUR_ROGERS_USERNAME>"
   password: "<YOUR_ROGERS_PASSWORD>"
   deviceId: "<FINGERPRINT_DEVICE_ID>"
+wealthsimple:
+  # Wealthsimple API Configuration
+  username: "<YOUR_WEALTHSIMPLE_USERNAME>"
+  password: "<YOUR_WEALTHSIMPLE_PASSWORD>"
+scotia:
+  # Scotia API Configuration
+  username: "<YOUR_SCOTIA_USERNAME>"
+  password: "<YOUR_SCOTIA_PASSWORD>"
+  
+# Note: The above configuration is an example. Please replace the placeholders with your actual credentials.
 

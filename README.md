@@ -1,6 +1,6 @@
 # Sandwich Sync CLI
 
-A command-line tool for fetching transactions from Rogers Bank API storing them locally and syncing them to LunchMoney.
+A command-line tool for fetching transactions from Rogers/Wealthsimple and Scotiabank API storing them locally and syncing them to LunchMoney.
 
 ## Features
 
@@ -19,6 +19,14 @@ A command-line tool for fetching transactions from Rogers Bank API storing them 
    go build -o lunchmoney
    ```
 3. Rename `config.example.yaml` to `config.yaml` and add your key
+4. If you are going to use Scotia, you'll need to install [`patchright`](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python)(a modified version of [playwright](https://playwright.dev/)) to bypass Akamai logins.
+```
+# Install Patchright with Pip from PyPI
+pip install patchright
+
+# Install Chromium-Driver for Patchright
+patchright install chromium
+```
 
 ## Usage
 
@@ -33,37 +41,8 @@ A command-line tool for fetching transactions from Rogers Bank API storing them 
 - `help` - Show help message
 - `list` - List all transactions in the database
 - `exit` or `quit` - Exit the REPL
-- Enter a curl-like command to fetch transactions
-
-### Example Curl Command
-
-The application supports both single-quoted and caret-quoted curl commands:
-
-#### Single-quoted (standard curl format)
-
-```
-curl 'https://rbaccess.rogersbank.com/issuing/digital/account/111111111/customer/00000000/activity?cycleStartDate=2025-04-23' \
-  -H 'Accept-Language: en-US,en;q=0.9,es;q=0.8,en-CA;q=0.7' \
-  -H 'Connection: keep-alive' \
-  -b 'X_DOM_session_guid=215o1231; language=en' \
-  -H 'Referer: https://rbaccess.rogersbank.com/app/transactions' \
-  -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36' \
-  -H 'accept: application/json' \
-  -H 'content-type: application/json'
-```
-
-#### Caret-quoted (Windows CMD format)
-
-```
-curl ^"https://rbaccess.rogersbank.com/issuing/digital/account/111111111/customer/00000000/activity?cycleStartDate=2025-04-23^" ^
-  -H ^"Accept-Language: en-US,en;q=0.9,es;q=0.8,en-CA;q=0.7^" ^
-  -H ^"Connection: keep-alive^" ^
-  -b ^"X_DOM_session_guid=41241; language=en^" ^
-  -H ^"Referer: https://rbaccess.rogersbank.com/app/transactions^" ^
-  -H ^"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36^" ^
-  -H ^"accept: application/json^" ^
-  -H ^"content-type: application/json^"
-```
+- `fetch <provider>` - Fetch recent transactions from a provider (rogers, wealthsimple, scotiabank)
+- `sync` - Sync transactions to LunchMoney
 
 ## Database
 
