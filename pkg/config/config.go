@@ -21,11 +21,17 @@ type WealthsimpleOptions struct {
 	PrevSession string `yaml:"prevSession"`
 }
 
+type ScotiabankOptions struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
 // Config holds the application configuration
 type Config struct {
 	LunchMoneyAPIKey       string              `yaml:"lunchMoneyApiKey"`
 	RogersApiOptions       RogersOptions       `yaml:"rogers"`
 	WealthsimpleApiOptions WealthsimpleOptions `yaml:"wealthsimple"`
+	ScotiabankOptions      ScotiabankOptions   `yaml:"scotia"`
 }
 
 var (
