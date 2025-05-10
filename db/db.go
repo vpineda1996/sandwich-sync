@@ -97,6 +97,60 @@ func (db *DB) Initialize() error {
 		return fmt.Errorf("failed to create account_mappings table: %w", err)
 	}
 
+	query = `
+	CREATE TABLE IF NOT EXISTS account_info (
+		lunchmoney_account_id TEXT PRIMARY KEY,
+		balance_value TEXT,
+		balance_currency TEXT
+	`
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("failed to create account_info table: %w", err)
+	}
+
+	return nil
+}
+
+// GetAccountBalance retrieves the balance for a given LunchMoney account ID
+func (db *DB) GetAccountBalance(lunchMoneyId string) (models.Amount, error) {
+	query := `
+	SELECT 
+		balance_value, balance_currency
+	FROM account_info
+	WHERE lunchmoney_account_id = ?
+	LIMIT 1
+	`
+
+	var balance models.Amount
+	err := db.QueryRow(query, lunchMoneyId).Scan(
+		&balance.Value,
+		&balance.Currency,
+	)
+
+	if err == sql.ErrNoRows {
+		return models.Amount{}, fmt.Errorf("no account balance found for LunchMoney ID: %s", lunchMoneyId)
+	} else if err != nil {
+		return models.Amount{}, fmt.Errorf("failed to get account balance: %w", err)
+	}
+
+	return balance, nil
+}
+
+// UpsertAccountBalance saves the balance for a given LunchMoney account ID
+func (db *DB) UpsertAccountBalance(lunchMoneyId string, balance models.Amount) error {
+	query := `
+	INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency)
+	VALUES (?, ?, ?)
+	ON CONFLICT(lunchmoney_account_id) DO UPDATE SET
+		balance_value = excluded.balance_value,
+		balance_currency = excluded.balance_currency
+	`
+
+	_, err := db.Exec(query, lunchMoneyId, balance.Value, balance.Currency)
+	if err != nil {
+		return fmt.Errorf("failed to upsert account balance: %w", err)
+	}
+
 	return nil
 }
 

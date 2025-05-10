@@ -75,7 +75,7 @@ func TestSyncTransactions(t *testing.T) {
 	}
 
 	// Create a mock account selector
-	mockSelector := NewAccountSelectorWithClient(mockClient, mockDB)
+	mockSelector := NewAccountMapperWithClient(mockClient, mockDB)
 	mockSelector.selectedAccount = &models.AccountMapping{
 		LunchMoneyId: 1,
 		ExternalName: "Test Account",
@@ -244,7 +244,7 @@ func TestEnrichWithAccounts(t *testing.T) {
 	}
 
 	// Create a mock account selector
-	mockSelector := NewAccountSelectorWithClient(mockClient, mockDB)
+	mockSelector := NewAccountMapperWithClient(mockClient, mockDB)
 	mockSelector.selectedAccount = &models.AccountMapping{
 		LunchMoneyId: 1,
 		ExternalName: "Test Account",

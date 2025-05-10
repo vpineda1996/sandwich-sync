@@ -5,38 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vpnda/sandwich-sync/db"
-	"github.com/vpnda/sandwich-sync/pkg/http/lm"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 
 	"github.com/icco/lunchmoney"
 	"github.com/samber/lo"
 )
-
-type LunchMoneySyncer struct {
-	client          lm.LunchMoneyClientInterface
-	database        db.DBInterface
-	accountSelector *AccountSelector
-	forceSync       bool
-}
-
-func NewLunchMoneySyncer(ctx context.Context, apiKey string, database db.DBInterface) (*LunchMoneySyncer, error) {
-	c, err := lm.NewLunchMoneyClient(ctx, apiKey)
-	if err != nil {
-		return nil, err
-	}
-
-	as, err := NewAccountSelector(ctx, apiKey, database)
-	if err != nil {
-		return nil, err
-	}
-
-	return &LunchMoneySyncer{
-		client:          c,
-		database:        database,
-		accountSelector: as,
-	}, nil
-}
 
 func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 	// fetch the transactions from our local database

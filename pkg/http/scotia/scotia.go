@@ -169,7 +169,9 @@ func (s *ScotiaClient) FetchTransactions(ctx context.Context) ([]models.Transact
 func formatAmount(transactionType TransactionType,
 	transactionAmount openapiclient.ApiAccountsSummaryGet200ResponseDataProductsInnerPrimaryBalancesInner) models.Amount {
 	amountStr := fmt.Sprintf("%.2f", *transactionAmount.Amount)
-	if transactionType == TransactionTypeDebit {
+	if transactionType == TransactionTypeCredit {
+		// The database stores outflows as positive values, so wehn the transaction type is
+		// credit, we need to negate the amount as an inflow.
 		amountStr = "-" + amountStr
 	}
 	return models.Amount{

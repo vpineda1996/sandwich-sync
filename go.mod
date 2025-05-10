@@ -11,30 +11,25 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/samber/lo v1.50.0
 	github.com/spf13/cobra v1.9.1
-	github.com/vpnda/wsfetch v0.1.2-0.20250507020207-39bc86a75a1f
+	github.com/vpnda/scotiafetch v0.0.0-20250508134801-30d572627efb
+	github.com/vpnda/wsfetch v0.1.2-0.20250510171807-f8a3ad747b53
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/Khan/genqlient v0.7.0 // indirect
-	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.26.0 // indirect
-	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/playwright-community/playwright-go v0.5200.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
-	github.com/tliron/py4go v0.0.0-20250217190551-2a45aeb39bc7 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.11 // indirect
-	github.com/vpnda/scotiafetch v0.0.0-20250508134801-30d572627efb // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
@@ -43,4 +38,4 @@ require (
 	golang.org/x/text v0.24.0 // indirect
 )
 
-replace github.com/icco/lunchmoney v0.4.1 => github.com/vpnda/lunchmoney v0.5.0
+replace github.com/icco/lunchmoney v0.4.1 => github.com/vpnda/lunchmoney v0.5.1

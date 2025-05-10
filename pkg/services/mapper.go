@@ -13,35 +13,35 @@ const (
 	DefaultAccountName = "Default Account"
 )
 
-type AccountSelector struct {
+type AccountMapper struct {
 	client          lm.LunchMoneyClientInterface
 	db              db.DBInterface
 	selectedAccount *models.AccountMapping
 }
 
-func NewAccountSelector(ctx context.Context, apiKey string, database db.DBInterface) (*AccountSelector, error) {
+func NewAccountMapper(ctx context.Context, apiKey string, database db.DBInterface) (*AccountMapper, error) {
 	c, err := lm.NewLunchMoneyClient(ctx, apiKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AccountSelector{
+	return &AccountMapper{
 		client: c,
 		db:     database,
 	}, nil
 }
 
-// NewAccountSelectorWithClient creates a new account selector with a provided client
-func NewAccountSelectorWithClient(client lm.LunchMoneyClientInterface, database db.DBInterface) *AccountSelector {
-	return &AccountSelector{
+// NewAccountMapperWithClient creates a new account mapper with a provided client
+func NewAccountMapperWithClient(client lm.LunchMoneyClientInterface, database db.DBInterface) *AccountMapper {
+	return &AccountMapper{
 		client: client,
 		db:     database,
 	}
 }
 
-func (is *AccountSelector) FindPossibleAccountForTransaction(ctx context.Context, transaction *models.TransactionWithAccount) (*models.AccountMapping, error) {
+func (is *AccountMapper) FindPossibleAccountForTransaction(ctx context.Context, transaction *models.TransactionWithAccount) (*models.AccountMapping, error) {
 	// Fetch mapping from the database
-	mapping, err := is.db.GetAccountMapping(transaction.ReferenceNumber)
+	mapping, err := is.db.GetAccountMapping(transaction.SourceAccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (is *AccountSelector) FindPossibleAccountForTransaction(ctx context.Context
 	return is.selectAccountInteractive(transaction.SourceAccountName)
 }
 
-func (is *AccountSelector) selectAccountInteractive(sourceAccountName string) (*models.AccountMapping, error) {
+func (is *AccountMapper) selectAccountInteractive(sourceAccountName string) (*models.AccountMapping, error) {
 	accounts, err := is.client.ListAccounts(context.Background())
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (is *AccountSelector) selectAccountInteractive(sourceAccountName string) (*
 	return mapping, nil
 }
 
-func (is *AccountSelector) SelectDefaultAccount() error {
+func (is *AccountMapper) SelectDefaultAccount() error {
 	sa, err := is.selectAccountInteractive(DefaultAccountName)
 	if err != nil {
 		return err
