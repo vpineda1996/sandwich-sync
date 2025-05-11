@@ -18,8 +18,8 @@ type DBInterface interface {
 	UpsertAccountMapping(am *models.AccountMapping) error
 	GetAccountMapping(externalId string) (*models.AccountMapping, error)
 
-	GetAccountBalance(lunchMoneyId string) (models.Amount, error)
-	UpsertAccountBalance(lunchMoneyId string, balance models.Amount) error
+	GetAccounts() ([]models.LunchMoneyAccount, error)
+	UpsertAccountBalance(externalAccountName string, balance models.Amount) error
 }
 
 // Ensure DB implements DBInterface

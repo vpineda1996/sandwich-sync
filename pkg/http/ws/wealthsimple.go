@@ -8,6 +8,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/vpnda/sandwich-sync/pkg/config"
+	"github.com/vpnda/sandwich-sync/pkg/http"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 	"github.com/vpnda/wsfetch/pkg/auth/types"
 	"github.com/vpnda/wsfetch/pkg/base"
@@ -17,6 +18,11 @@ import (
 type WealthsimpleClient struct {
 	c client.Client
 }
+
+var (
+	_ http.TransactionFetcher = &WealthsimpleClient{}
+	_ http.BalanceFetcher     = &WealthsimpleClient{}
+)
 
 func NewWealthsimpleClient(ctx context.Context) (*WealthsimpleClient, error) {
 	prevSession, err := config.GetWealthsimplePrevSession()

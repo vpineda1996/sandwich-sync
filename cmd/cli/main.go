@@ -12,6 +12,7 @@ import (
 
 	"github.com/vpnda/sandwich-sync/db"
 	"github.com/vpnda/sandwich-sync/pkg/config"
+	"github.com/vpnda/sandwich-sync/pkg/http"
 	"github.com/vpnda/sandwich-sync/pkg/http/rogers"
 	"github.com/vpnda/sandwich-sync/pkg/http/scotia"
 	"github.com/vpnda/sandwich-sync/pkg/http/ws"
@@ -147,7 +148,7 @@ func runREPL() {
 		}
 
 		if strings.HasPrefix(trimmedLine, "sync") && !isMultiline {
-			syncTransactions(database)
+			syncState(database)
 			continue
 		}
 
@@ -224,12 +225,7 @@ func fetchTransactionsScotia(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error authenticating Scotia client: %v\n", err)
 		return
 	}
-	transactions, err := client.FetchTransactions(context.Background())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
-		return
-	}
-	insertTransactionsToDb(database, transactions)
+	syncFromFetcher(client, database)
 }
 
 func fetchTransactionsWs(database *db.DB) {
@@ -238,13 +234,7 @@ func fetchTransactionsWs(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error creating Wealthsimple client: %v\n", err)
 		return
 	}
-
-	transactions, err := client.FetchTransactions(context.Background())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
-		return
-	}
-	insertTransactionsToDb(database, transactions)
+	syncFromFetcher(client, database)
 }
 
 func fetchTransactionsRogers(database *db.DB) {
@@ -265,6 +255,15 @@ func fetchTransactionsRogers(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error authenticating: %v\n", err)
 		return
 	}
+	syncFromFetcher(client, database)
+}
+
+func syncFromFetcher(client http.Fetcher, database *db.DB) {
+	err := client.UpdateAccountBalances(context.Background(), database)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error updating account balances: %v\n", err)
+		return
+	}
 
 	// Fetch transactions
 	transactions, err := client.FetchTransactions(context.Background())
@@ -273,6 +272,7 @@ func fetchTransactionsRogers(database *db.DB) {
 		return
 	}
 	insertTransactionsToDb(database, transactions)
+
 }
 
 func insertTransactionsToDb(database *db.DB, transactions []models.TransactionWithAccount) {
@@ -293,7 +293,7 @@ func insertTransactionsToDb(database *db.DB, transactions []models.TransactionWi
 	}
 }
 
-func syncTransactions(database *db.DB) {
+func syncState(database *db.DB) {
 	// Get the API key from the configuration
 	apiKey, err := config.GetLunchMoneyAPIKey()
 	if err != nil {
@@ -311,6 +311,12 @@ func syncTransactions(database *db.DB) {
 	err = lsyncer.SyncTransactions(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error syncing transactions: %v\n", err)
+		return
+	}
+
+	err = lsyncer.SyncBalances(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error syncing accounts: %v\n", err)
 		return
 	}
 }

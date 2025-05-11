@@ -25,8 +25,8 @@ type MockDB struct {
 	UpsertAccountMappingErr error
 }
 
-// GetAccountBalance implements DBInterface.
-func (m *MockDB) GetAccountBalance(lunchMoneyId string) (models.Amount, error) {
+// GetAccounts implements DBInterface.
+func (m *MockDB) GetAccounts() ([]models.LunchMoneyAccount, error) {
 	panic("unimplemented")
 }
 

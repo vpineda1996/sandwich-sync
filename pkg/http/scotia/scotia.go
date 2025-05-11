@@ -11,6 +11,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
+	iface "github.com/vpnda/sandwich-sync/pkg/http"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 	openapiclient "github.com/vpnda/scotiafetch"
 )
@@ -20,32 +21,14 @@ type ScotiaClient struct {
 	apiClient  *openapiclient.APIClient
 }
 
-type RoundTripperFunc func(*http.Request) (*http.Response, error)
-
-func (fn RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return fn(r)
-}
-
-var (
-	ErrAuthRedirect = fmt.Errorf("got redirect")
-)
-
 func NewScotiaClient() (*ScotiaClient, error) {
 	configuration := openapiclient.NewConfiguration()
 
 	jar, _ := cookiejar.New(nil)
 	client := http.Client{
 		Jar: jar,
-		// Transport: RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		// 	d, _ := httputil.DumpRequest(r, true)
-		// 	fmt.Println(string(d))
-		// 	res, err := http.DefaultTransport.RoundTrip(r)
-		// 	if err == nil {
-		// 		d, _ := httputil.DumpResponse(res, true)
-		// 		fmt.Println(string(d))
-		// 	}
-		// 	return res, err
-		// }),
+		// Uncomment the following line to enable debug logging
+		// Transport: debugRoundTripper(),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// Print the redirect URL
 			log.Info().Msgf("request is being redirected: %s", req.URL.String())
@@ -62,19 +45,9 @@ func NewScotiaClient() (*ScotiaClient, error) {
 	}, nil
 }
 
-type AccountProductCategory string
-type AccountType string
-type TransactionType string
-
-const (
-	AccountCategoryDayToDay    AccountProductCategory = "DAYTODAY"
-	AccountCategoryCreditCards AccountProductCategory = "CREDITCARDS"
-	AccountCategoryInvesting   AccountProductCategory = "INVESTING"
-
-	AccountTypeChequing AccountType = "Chequing"
-
-	TransactionTypeDebit  TransactionType = "DEBIT"
-	TransactionTypeCredit TransactionType = "CREDIT"
+var (
+	_ iface.TransactionFetcher = &ScotiaClient{}
+	_ iface.BalanceFetcher     = &ScotiaClient{}
 )
 
 // FetchTransactions implements http.TransactionFetcher.

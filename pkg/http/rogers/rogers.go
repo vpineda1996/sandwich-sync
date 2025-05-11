@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 
+	iface "github.com/vpnda/sandwich-sync/pkg/http"
+
 	"github.com/samber/lo"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 )
@@ -30,6 +32,11 @@ func NewRogersBankClient(fingerprint string) *RogersBankClient {
 		fingerprint: fingerprint,
 	}
 }
+
+var (
+	_ iface.TransactionFetcher = &RogersBankClient{}
+	_ iface.BalanceFetcher     = &RogersBankClient{}
+)
 
 const (
 	rogersBaseURL = "https://rbaccess.rogersbank.com"

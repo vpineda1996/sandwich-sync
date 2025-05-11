@@ -4,7 +4,9 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/samber/lo"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 
 	"github.com/icco/lunchmoney"
@@ -38,10 +40,30 @@ func (c *LunchMoneyClient) ListAccounts(ctx context.Context) ([]models.LunchMone
 		accounts = append(accounts, models.LunchMoneyAccount{
 			LunchMoneyId: asset.ID,
 			Name:         asset.Name,
+			Balance: models.Amount{
+				Value:    asset.Balance,
+				Currency: asset.Currency,
+			},
+			BalanceLastUpdated: &asset.BalanceAsOf,
 		})
 	}
 
 	return accounts, nil
+}
+
+// UpdateAccountBalance implements LunchMoneyClientInterface.
+func (c *LunchMoneyClient) UpdateAccountBalance(ctx context.Context, id int64, balance models.Amount, since *time.Time) error {
+	// Update the account balance in LunchMoney
+	_, err := c.client.UpdateAsset(ctx, id, &lunchmoney.UpdateAsset{
+		Balance:     &balance.Value,
+		Currency:    &balance.Currency,
+		BalanceAsOf: lo.ToPtr(since.Format(time.RFC3339)),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *LunchMoneyClient) ListTransaction(ctx context.Context, filter *lunchmoney.TransactionFilters) ([]models.Transaction, error) {

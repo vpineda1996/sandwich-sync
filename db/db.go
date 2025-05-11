@@ -97,103 +97,12 @@ func (db *DB) Initialize() error {
 		return fmt.Errorf("failed to create account_mappings table: %w", err)
 	}
 
-	query = `
-	CREATE TABLE IF NOT EXISTS account_info (
-		lunchmoney_account_id TEXT PRIMARY KEY,
-		balance_value TEXT,
-		balance_currency TEXT
-	`
-	_, err = db.Exec(query)
+	err = db.createAccountInfoTable()
 	if err != nil {
 		return fmt.Errorf("failed to create account_info table: %w", err)
 	}
 
 	return nil
-}
-
-// GetAccountBalance retrieves the balance for a given LunchMoney account ID
-func (db *DB) GetAccountBalance(lunchMoneyId string) (models.Amount, error) {
-	query := `
-	SELECT 
-		balance_value, balance_currency
-	FROM account_info
-	WHERE lunchmoney_account_id = ?
-	LIMIT 1
-	`
-
-	var balance models.Amount
-	err := db.QueryRow(query, lunchMoneyId).Scan(
-		&balance.Value,
-		&balance.Currency,
-	)
-
-	if err == sql.ErrNoRows {
-		return models.Amount{}, fmt.Errorf("no account balance found for LunchMoney ID: %s", lunchMoneyId)
-	} else if err != nil {
-		return models.Amount{}, fmt.Errorf("failed to get account balance: %w", err)
-	}
-
-	return balance, nil
-}
-
-// UpsertAccountBalance saves the balance for a given LunchMoney account ID
-func (db *DB) UpsertAccountBalance(lunchMoneyId string, balance models.Amount) error {
-	query := `
-	INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency)
-	VALUES (?, ?, ?)
-	ON CONFLICT(lunchmoney_account_id) DO UPDATE SET
-		balance_value = excluded.balance_value,
-		balance_currency = excluded.balance_currency
-	`
-
-	_, err := db.Exec(query, lunchMoneyId, balance.Value, balance.Currency)
-	if err != nil {
-		return fmt.Errorf("failed to upsert account balance: %w", err)
-	}
-
-	return nil
-}
-
-func (db *DB) UpsertAccountMapping(am *models.AccountMapping) error {
-	query := `
-	INSERT INTO account_mappings (external_name, lunchmoney_account_id, is_plaid)
-	VALUES (?, ?, ?)
-	ON CONFLICT(external_name) DO UPDATE SET
-		lunchmoney_account_id = excluded.lunchmoney_account_id,
-		is_plaid = excluded.is_plaid
-	`
-
-	_, err := db.Exec(query, am.ExternalName, am.LunchMoneyId, am.IsPlaid)
-	if err != nil {
-		return fmt.Errorf("failed to upsert account mapping: %w", err)
-	}
-
-	return nil
-}
-
-func (db *DB) GetAccountMapping(externalId string) (*models.AccountMapping, error) {
-	query := `
-	SELECT 
-		external_name, lunchmoney_account_id, is_plaid
-	FROM account_mappings
-	WHERE external_name = ?
-	LIMIT 1
-	`
-
-	var am models.AccountMapping
-	err := db.QueryRow(query, externalId).Scan(
-		&am.ExternalName,
-		&am.LunchMoneyId,
-		&am.IsPlaid,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get account mapping: %w", err)
-	}
-
-	return &am, nil
 }
 
 // UpdateTransaction updates an existing transaction in the database

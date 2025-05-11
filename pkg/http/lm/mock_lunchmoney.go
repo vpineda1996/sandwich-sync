@@ -2,6 +2,7 @@ package lm
 
 import (
 	"context"
+	"time"
 
 	"github.com/icco/lunchmoney"
 	"github.com/vpnda/sandwich-sync/pkg/models"
@@ -18,6 +19,11 @@ type MockLunchMoneyClient struct {
 	ListAccountsErr       error
 	ListTransactionErr    error
 	InsertTransactionsErr error
+}
+
+// UpdateAccountBalance implements LunchMoneyClientInterface.
+func (m *MockLunchMoneyClient) UpdateAccountBalance(ctx context.Context, id int64, balance models.Amount, since *time.Time) error {
+	panic("unimplemented")
 }
 
 // NewMockLunchMoneyClient creates a new mock LunchMoney client
