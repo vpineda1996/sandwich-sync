@@ -21,7 +21,7 @@ func (s *ScotiaClient) UpdateAccountBalances(ctx context.Context, balanceStorage
 	defer r.Body.Close()
 
 	for _, account := range resp.Data.GetProducts() {
-		externalAccountName := account.GetKey()
+		externalAccountName := AccountName(&account)
 		primaryBalances := account.GetPrimaryBalances()
 		if len(primaryBalances) == 0 {
 			return fmt.Errorf("no primary balances found for account %s", externalAccountName)

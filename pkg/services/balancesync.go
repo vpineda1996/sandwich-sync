@@ -38,12 +38,12 @@ func (l *LunchMoneySyncer) SyncBalances(ctx context.Context) error {
 		}
 
 		if localAccount.BalanceLastUpdated == nil || lunchMoneyAccount.BalanceLastUpdated == nil {
-			log.Warn().Str("account", localAccount.Name).Msg("Balance is out of sync, but we don't have a last updated date")
+			log.Warn().Int64("account", localAccount.LunchMoneyId).Msg("Balance is out of sync, but we don't have a last updated date")
 			continue
 		}
 
 		if localAccount.BalanceLastUpdated.After(*lunchMoneyAccount.BalanceLastUpdated) {
-			log.Info().Str("account", localAccount.Name).Msg("Updating balance in LunchMoney to match local balance")
+			log.Info().Int64("account", localAccount.LunchMoneyId).Msg("Updating balance in LunchMoney to match local balance")
 			err := l.client.UpdateAccountBalance(ctx, localAccount.LunchMoneyId, localAccount.Balance, localAccount.BalanceLastUpdated)
 			if err != nil {
 				return err
