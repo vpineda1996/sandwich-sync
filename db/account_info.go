@@ -1,8 +1,10 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 
+	"github.com/rs/zerolog/log"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
@@ -26,12 +28,34 @@ func (db *DB) createAccountInfoTable() error {
 
 // UpsertAccountBalance saves the balance for a given external account ID
 func (db *DB) UpsertAccountBalance(externalId string, balance models.Amount) error {
+	// first check if we've mapped the account
 	query := `
+	SELECT CAST(lunchmoney_account_id as INTEGER) FROM account_mappings WHERE external_name = ?
+	`
+	row := db.QueryRow(query, externalId)
+	var lunchmoneyAccountId int64
+
+	err := row.Scan(&lunchmoneyAccountId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Info().Str("external_id", externalId).Msg("account not mapped, skip balance update")
+			return nil
+		}
+		return fmt.Errorf("failed to query account mapping: %w", err)
+	}
+
+	// if we have, upsert the balance
+	query = `
 	INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, balance_updated_at, is_plaid)
-	VALUES ((SELECT CAST(lunchmoney_account_id as INTEGER) FROM account_mappings WHERE external_name = ?), ?, ?, CURRENT_TIMESTAMP, false)
+	VALUES (?, ?, ?, CURRENT_TIMESTAMP, false)
+	ON CONFLICT(lunchmoney_account_id) 
+	DO UPDATE SET 
+		balance_value = excluded.balance_value,
+		balance_currency = excluded.balance_currency,
+		balance_updated_at = CURRENT_TIMESTAMP
 	`
 
-	_, err := db.Exec(query, externalId, balance.Value, balance.Currency)
+	_, err = db.Exec(query, lunchmoneyAccountId, balance.Value, balance.Currency)
 	if err != nil {
 		return fmt.Errorf("failed to upsert account balance: %w", err)
 	}

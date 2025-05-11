@@ -50,6 +50,10 @@ var (
 	_ iface.BalanceFetcher     = &ScotiaClient{}
 )
 
+func AccountName(account interface{ GetDescription() string }) string {
+	return account.GetDescription()
+}
+
 // FetchTransactions implements http.TransactionFetcher.
 func (s *ScotiaClient) FetchTransactions(ctx context.Context) ([]models.TransactionWithAccount, error) {
 	resp, r, err := s.apiClient.DefaultAPI.ApiAccountsSummaryGet(ctx).Execute()
@@ -83,7 +87,7 @@ func (s *ScotiaClient) FetchTransactions(ctx context.Context) ([]models.Transact
 		for _, transaction := range transactions.GetData() {
 			// Convert to models.TransactionWithAccount
 			transactionWithAccount := models.TransactionWithAccount{
-				SourceAccountName: account.GetDescription(),
+				SourceAccountName: AccountName(&account),
 				Transaction: models.Transaction{
 					ReferenceNumber: *transaction.Key,
 					Amount: formatAmount(TransactionType(transaction.GetTransactionType()),
