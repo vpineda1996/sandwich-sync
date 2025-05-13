@@ -256,10 +256,14 @@ func (r *replState) fetchTransactionsRogers() {
 func (r *replState) syncFromFetcher(client http.Fetcher) {
 	accountBalances, err := client.FetchAccountBalances(context.Background())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error updating account balances: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error fetching account balances: %v\n", err)
 		return
 	}
 	err = r.updateAccountBalances(accountBalances)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error updating account balances: %v\n", err)
+		return
+	}
 
 	// Fetch transactions
 	transactions, err := client.FetchTransactions(context.Background())
