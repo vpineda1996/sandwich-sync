@@ -50,10 +50,6 @@ var (
 	_ iface.BalanceFetcher     = &ScotiaClient{}
 )
 
-func AccountName(account interface{ GetDescription() string }) string {
-	return account.GetDescription()
-}
-
 // FetchTransactions implements http.TransactionFetcher.
 func (s *ScotiaClient) FetchTransactions(ctx context.Context) ([]models.TransactionWithAccount, error) {
 	resp, r, err := s.apiClient.DefaultAPI.ApiAccountsSummaryGet(ctx).Execute()
@@ -123,14 +119,15 @@ func (s *ScotiaClient) FetchTransactions(ctx context.Context) ([]models.Transact
 				return nil, fmt.Errorf("failed to parse transaction date %s: %w", *transaction.TransactionDate, err)
 			}
 			transactionWithAccount := models.TransactionWithAccount{
-				SourceAccountName: account.GetDescription(),
+				SourceAccountName: AccountName(&account),
 				Transaction: models.Transaction{
 					ReferenceNumber: *transaction.Key,
 					Amount: formatAmount(
 						TransactionType(*transaction.TransactionType),
 						transaction.GetTransactionAmount()),
 					Merchant: &models.Merchant{
-						Name: *transaction.CleanDescription,
+						Name:         formatTransactionDescription(&transaction),
+						CategoryCode: transaction.Category.GetCode(),
 					},
 					Date: date.Format(time.DateOnly),
 				},
@@ -141,20 +138,6 @@ func (s *ScotiaClient) FetchTransactions(ctx context.Context) ([]models.Transact
 	}
 
 	return result, nil
-}
-
-func formatAmount(transactionType TransactionType,
-	transactionAmount openapiclient.ApiAccountsSummaryGet200ResponseDataProductsInnerPrimaryBalancesInner) models.Amount {
-	amountStr := fmt.Sprintf("%.2f", *transactionAmount.Amount)
-	if transactionType == TransactionTypeCredit {
-		// The database stores outflows as positive values, so wehn the transaction type is
-		// credit, we need to negate the amount as an inflow.
-		amountStr = "-" + amountStr
-	}
-	return models.Amount{
-		Value:    amountStr,
-		Currency: *transactionAmount.CurrencyCode,
-	}
 }
 
 func (s *ScotiaClient) validateHealthySession(ctx context.Context, headers map[string]string) error {

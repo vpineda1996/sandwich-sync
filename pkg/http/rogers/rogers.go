@@ -44,6 +44,9 @@ const (
 	localePath   = rogersBaseURL + "/issuing/digital/content/locale"
 	authPath     = rogersBaseURL + "/issuing/digital/authenticate/user"
 	activityPath = rogersBaseURL + "/issuing/digital/account/%s/customer/%s/activity"
+	detailPath   = rogersBaseURL + "/issuing/digital/account/%s/customer/%s/detail"
+
+	externalAccountName = "Rogers Bank"
 )
 
 type deviceInfo struct {
@@ -169,7 +172,7 @@ func (c *RogersBankClient) FetchTransactions(ctx context.Context) ([]models.Tran
 	for _, activity := range transactions.Activities {
 		tx := models.TransactionWithAccount{
 			Transaction:       activity,
-			SourceAccountName: "Rogers Bank",
+			SourceAccountName: externalAccountName,
 		}
 		result = append(result, tx)
 	}
