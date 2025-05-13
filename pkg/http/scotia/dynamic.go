@@ -12,21 +12,29 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
 type cookie struct {
-	Name   string `json:"name"`
-	Value  string `json:"value"`
-	Domain string `json:"domain"`
-	Path   string `json:"path"`
+	Name     string  `json:"name"`
+	Value    string  `json:"value"`
+	Domain   string  `json:"domain"`
+	Path     string  `json:"path"`
+	Expires  float64 `json:"expires"`
+	HttpOnly bool    `json:"httpOnly"`
+	Secure   bool    `json:"secure"`
+	SameSite string  `json:"sameSite"`
 }
 
 func (c *cookie) ToHttpCookie() *http.Cookie {
 	return &http.Cookie{
-		Name:  c.Name,
-		Value: c.Value,
+		Name:     c.Name,
+		Value:    c.Value,
+		Expires:  time.Now().Add(1 * time.Hour),
+		HttpOnly: c.HttpOnly,
+		Secure:   c.Secure,
 	}
 }
 
@@ -51,14 +59,14 @@ func (s *ScotiaClient) AuthenticateDynamic(ctx context.Context) error {
 		}
 
 		err := s.authValidate(ctx)
-		if err != nil && !errors.Is(err, ErrAuthRedirect) {
+		if err != nil && !errors.Is(err, ErrAuthRedirect) && !errors.Is(err, ErrReadingConfigFile) {
 			return fmt.Errorf("failed to validate auth: %w", err)
 		} else if err == nil {
 			log.Info().Msg("Auth validated successfully")
 			return nil
 		}
 
-		log.Info().Err(err).Msg("Auth redirect, trying to refresh token...")
+		log.Info().Err(err).Msg("Auth redirect or not config present, trying to refresh token...")
 		err = s.authCreate(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to create auth: %w", err)
@@ -91,10 +99,9 @@ func (s *ScotiaClient) authCreate(ctx context.Context) error {
 }
 
 func (s *ScotiaClient) authValidate(ctx context.Context) error {
-	// assume the python script runs
 	sess, err := s.readSessionFile(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to read session file: %w", err)
+		return fmt.Errorf("%w: %s", ErrReadingConfigFile, err)
 	}
 
 	log.Info().Msg("Read session file successfully")
