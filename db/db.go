@@ -85,14 +85,7 @@ func (db *DB) Initialize() error {
 		}
 	}
 
-	query = `
-	CREATE TABLE IF NOT EXISTS account_mappings (
-		external_name TEXT PRIMARY KEY,
-		lunchmoney_account_id TEXT,
-		is_plaid BOOLEAN
-	)
-	`
-	_, err = db.Exec(query)
+	err = db.createAccountMappingsTable()
 	if err != nil {
 		return fmt.Errorf("failed to create account_mappings table: %w", err)
 	}

@@ -5,28 +5,28 @@ import (
 	"fmt"
 
 	"github.com/rs/zerolog/log"
-	"github.com/vpnda/sandwich-sync/pkg/http"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // UpdateAccountBalances implements http.BalanceFetcher.
-func (w *WealthsimpleClient) UpdateAccountBalances(ctx context.Context, balanceStorage http.BalanceStorer) error {
+func (w *WealthsimpleClient) FetchAccountBalances(ctx context.Context) ([]models.ExternalAccount, error) {
 	accounts, err := w.c.GetAccounts(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get accounts: %w", err)
+		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
 
+	var externalAccounts []models.ExternalAccount
 	for _, account := range accounts {
 		balance := models.Amount{
 			Value:    account.GetFinancials().CurrentCombined.NetLiquidationValueV2.Amount,
 			Currency: account.GetFinancials().CurrentCombined.NetLiquidationValueV2.Currency,
 		}
 		log.Info().Msgf("Found balance for account %s: %s", account.Id, balance.ToMoney().Display())
-		err = balanceStorage.UpsertAccountBalance(account.Id, balance)
-		if err != nil {
-			return fmt.Errorf("failed to upsert account balance: %w", err)
-		}
+		externalAccounts = append(externalAccounts, models.ExternalAccount{
+			Name:    account.Id,
+			Balance: balance,
+		})
 	}
 
-	return nil
+	return externalAccounts, nil
 }

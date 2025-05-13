@@ -8,6 +8,11 @@ import yaml
 import time
 import os
 import sys
+from logging import getLogger, INFO
+
+logger = getLogger()
+logger.setLevel(INFO)
+info = logger.info
 
 @dataclass
 class AuthSession:
@@ -89,7 +94,7 @@ class ScotiaClient:
         Restore the session from a file
         """
         if not os.path.exists(self.session_file):
-            print("Session file does not exist, cannot load back session config")
+            info("Session file does not exist, cannot load back session config")
             self.session = None
             self.rsid = "web_" + str(uuid4())
             return
@@ -110,14 +115,14 @@ class ScotiaClient:
         
         # Unique session identifier for auth
         self.rsid = self.session.auth_session.used_rsid
-        print(f"Restored session from file")
+        info(f"Restored session from file")
 
     def populate_cookies_from_session(self, page: Page):
         """
         Populate the cookies from the session
         """
         if not self.session:
-            print("No session to populate cookies from")
+            info("No session to populate cookies from")
             return
         
         # Set the cookies in the page context
@@ -127,7 +132,7 @@ class ScotiaClient:
             *[ v for _, v in self.session.client_session.bypass_akamai.items() ]
         ]
         page.context.add_cookies(cookies=cookies_to_restore)
-        print(f"Restored {len(cookies_to_restore)} cookies to page context")
+        info(f"Restored {len(cookies_to_restore)} cookies to page context")
 
     @staticmethod
     def encode_jwt(header, payload):
@@ -212,7 +217,7 @@ class ScotiaClient:
         )
         if not web_track_id:
             raise Exception("Missing webTrackId in bns-auth-saved-users")
-        print(f"Masked ID: {masked_id}, Web Track ID: {web_track_id}")
+        info(f"Masked ID: {masked_id}, Web Track ID: {web_track_id}")
 
         # invoke the mult-user api
         multi_user_url = f"https://auth.scotiaonline.scotiabank.com/api/multi-user/{masked_id}"
@@ -225,17 +230,16 @@ class ScotiaClient:
         if response.status != 204:
             raise Exception(f"Expected 204, got {response.status} body: {response.text()}")
         
-        print("Response from multi-user API:", response.status)
-        
         # decode the bns-auth-saved-users cookie again
         bns_auth_saved_users = page.context.cookies()
         bns_auth_saved_users = next(
             (cookie for cookie in bns_auth_saved_users if "bns-auth-saved-users" in cookie["name"]),
             None
         )
-
         if not bns_auth_saved_users:
             raise Exception("Missing set-cookie in current context, cookies: " + str(page.context.cookies()))
+        
+        info("Multi-user API responded with valid cookie")
         return bns_auth_saved_users
 
     def save_session(self):
@@ -257,7 +261,7 @@ class ScotiaClient:
                     "bypass_akamai": self.session.client_session.bypass_akamai
                 }
             }, f)
-        print(f"Session saved to {self.session_file}")
+        info(f"Session saved to '{self.session_file}'")
 
     def sleep(self, seconds):
         """
@@ -267,13 +271,13 @@ class ScotiaClient:
             time.sleep(1)
             print(".", end="")
             sys.stdout.flush()
-        print()  
+        print()
 
     def collect_session_client_cookies(self, page: Page) -> ClientSession:
         """
         Update the session with the current page context
         """
-        print("Sleeping for 5 seconds to let akamai be happy", end="")
+        info("Sleeping for 5 seconds to let akamai be happy")
         self.sleep(5)
 
         # Get the cookies from the page context
@@ -293,7 +297,7 @@ class ScotiaClient:
         ]
         if not bypass_akamai_cookies:
             raise Exception("Missing bypass_akamai cookies in current context, cookies: " + str(page_cookies))
-        print(f"Found {len(bypass_akamai_cookies)} akamai cookies")
+        info(f"Collected {len(bypass_akamai_cookies)} Akamai cookies from current context")
         return ClientSession(
             session_id_cookie=session_id_cookie,
             bypass_akamai={
@@ -314,7 +318,7 @@ class ScotiaClient:
             self.sleep(1)
 
             if not page.url.startswith("https://auth.scotiaonline.scotiabank.com/"):
-                print(f"Already authenticated, skipping. Current URL: {page.url}")
+                info(f"Already authenticated, skipping. Current URL: {page.url}")
                 self.session.client_session = self.collect_session_client_cookies(page)
                 self.save_session()
                 return
@@ -335,8 +339,8 @@ class ScotiaClient:
                 data=json.dumps(empty_auth_req),
                 headers=self.build_authentications_header(page.url))
             
-            print("--------- STEP 1 ---------")
-            print(f"Authentication response: {response.text()}")
+            info("--------- STEP 1 ---------")
+            info(f"Authentication response: {response.text()}")
             
             if response.status != 206:
                 raise Exception(f"Expected 200, got {response.status}")
@@ -364,9 +368,9 @@ class ScotiaClient:
             
             solved_challenges = [password_challenge, mfa_nonce, two_sv_token]
             auth_url_with_key = f"{auth_url}/{auth_res['key']}"
-            print("--------- STEP 2 ---------")
-            print(f"Authentication URL: {auth_url_with_key}")
-            print(f"Authentication data: {json.dumps(solved_challenges)}")
+            info("--------- STEP 2 ---------")
+            info(f"Authentication URL: {auth_url_with_key}")
+            info(f"Authentication solved challenges: {[ch['type'] for ch in solved_challenges]}")
 
             response = page.request.post(auth_url_with_key, 
                                          data=json.dumps(solved_challenges),
@@ -375,13 +379,13 @@ class ScotiaClient:
             web_track_id = None
             additional_headers = {}
 
-            print("--------- STEP 3 ---------")
+            info("--------- STEP 3 ---------")
             while True:
                 if response.status > 299:
                     if response.status == 401:
-                        print("Authentication failed, retrying...")
-                        print(f"Response headers: {response.headers}")
-                        print(f"Authentication response: {response.text()}")
+                        info("Authentication failed, retrying...")
+                        info(f"Response headers: {response.headers}")
+                        info(f"Authentication response: {response.text()}")
                         self.sleep(5)
                         response = page.request.post(auth_url_with_key, 
                                                      data=json.dumps(solved_challenges),
@@ -395,10 +399,10 @@ class ScotiaClient:
                 
                 auth_token = response.headers.get("x-auth-token")
                 if auth_with_code.get("redirect_uri"):
-                    print(f"Redirect URL: {auth_with_code['redirect_uri']}")
+                    info(f"Redirect URL: {auth_with_code['redirect_uri']}")
                     break
                 
-                print("Authentication challenges:", [ch["type"] for ch in auth_with_code["challenges"]], end="")
+                info("Authentication challenges:", [ch["type"] for ch in auth_with_code["challenges"]])
 
                 selected_challenge = next(
                     (ch for ch in auth_with_code["challenges"] if ch["type"] == "POLLING"), None
@@ -414,7 +418,7 @@ class ScotiaClient:
                 if not selected_challenge:
                     raise Exception("Missing polling challenge")
                 
-                print(f", selected challenge: {selected_challenge['type']}")
+                info(f", selected challenge: {selected_challenge['type']}")
 
                 additional_headers = {"x-bff-action": "tmp-cookie-2sv-token"} if selected_challenge["type"] == "POLLING" else {}
 
@@ -425,7 +429,7 @@ class ScotiaClient:
                                                                                        additional_headers=additional_headers))
                 self.sleep(5)
 
-            print("--------- STEP 4 ---------")
+            info("--------- STEP 4 ---------")
             bns_auth_saved_users: Cookie = self.fetch_auth_saved_users(page)
 
             redirect_uri = auth_with_code["redirect_uri"]
@@ -436,13 +440,11 @@ class ScotiaClient:
             query_params["log_id"] = auth_token
 
             final_url = f"{parsed_uri.scheme}://{parsed_uri.netloc}{parsed_uri.path}?{urlencode(query_params, doseq=True)}"
-            print(f"Final URL: {final_url}")
-
+            info(f"Executing final url to '{parsed_uri.netloc}'")
             final_response = page.context.request.get(final_url)
-
             if final_response.status != 200:
                 raise Exception(f"Expected 200, got {final_response.status} body:{final_response.text()}")
-
+            
             # Save the session
             self.session = Session(
                 auth_session=AuthSession(
@@ -452,12 +454,13 @@ class ScotiaClient:
                 ),
                 client_session=self.collect_session_client_cookies(page)
             )
+            
+            info("Authentication successful")
 
-            print("Authentication successful")
             # Save the session to a file
             self.save_session()
             browser.close()
 
 client = ScotiaClient("config.yaml")
 client.authenticate()
-print("Authentication completed")
+info("Authentication completed")

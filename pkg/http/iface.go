@@ -15,10 +15,6 @@ type TransactionFetcher interface {
 	FetchTransactions(ctx context.Context) ([]models.TransactionWithAccount, error)
 }
 
-type BalanceStorer interface {
-	UpsertAccountBalance(externalAccountName string, balance models.Amount) error
-}
-
 type BalanceFetcher interface {
-	UpdateAccountBalances(ctx context.Context, balanceStorage BalanceStorer) error
+	FetchAccountBalances(ctx context.Context) ([]models.ExternalAccount, error)
 }

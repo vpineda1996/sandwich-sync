@@ -9,6 +9,13 @@ type AccountMapping struct {
 	IsPlaid      bool
 }
 
+type ExternalAccount struct {
+	// Name is a unique name for the account
+	Name string
+	// Balance is the balance of the account
+	Balance Amount
+}
+
 type LunchMoneyAccount struct {
 	// LunchMoneyId is the ID of the account in LunchMoney
 	LunchMoneyId int64
