@@ -50,20 +50,18 @@ func (s *ScotiaClient) AuthenticateDynamic(ctx context.Context) error {
 		default:
 		}
 
-		err := s.authCreate(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create auth: %w", err)
+		err := s.authValidate(ctx)
+		if err != nil && !errors.Is(err, ErrAuthRedirect) {
+			return fmt.Errorf("failed to validate auth: %w", err)
+		} else if err == nil {
+			log.Info().Msg("Auth validated successfully")
+			return nil
 		}
 
-		err = s.authValidate(ctx)
+		log.Info().Err(err).Msg("Auth redirect, trying to refresh token...")
+		err = s.authCreate(ctx)
 		if err != nil {
-			if !errors.Is(err, ErrAuthRedirect) {
-				log.Info().Msg("Auth redirect, retrying...")
-				continue
-			}
-			return fmt.Errorf("failed to validate auth: %w", err)
-		} else {
-			return nil
+			return fmt.Errorf("failed to create auth: %w", err)
 		}
 	}
 }

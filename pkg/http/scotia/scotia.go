@@ -9,7 +9,6 @@ import (
 	"net/http/cookiejar"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 	iface "github.com/vpnda/sandwich-sync/pkg/http"
 	"github.com/vpnda/sandwich-sync/pkg/models"
@@ -30,10 +29,7 @@ func NewScotiaClient() (*ScotiaClient, error) {
 		// Uncomment the following line to enable debug logging
 		// Transport: debugRoundTripper(),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Print the redirect URL
-			log.Info().Msgf("request is being redirected: %s", req.URL.String())
-			// You can also modify the request here if needed
-			return ErrAuthRedirect // Returning nil means we follow the redirect
+			return fmt.Errorf("%w: %s", ErrAuthRedirect, req.URL.String())
 		},
 	}
 	configuration.HTTPClient = &client
