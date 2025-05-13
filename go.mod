@@ -41,4 +41,4 @@ require (
 	golang.org/x/text v0.24.0 // indirect
 )
 
-replace github.com/icco/lunchmoney v0.4.1 => github.com/vpnda/lunchmoney v0.5.1
+replace github.com/icco/lunchmoney v0.4.1 => github.com/vpnda/lunchmoney v0.5.2

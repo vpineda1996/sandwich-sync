@@ -130,7 +130,7 @@ class ScotiaClient:
         payload_base64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
         return f"{header_base64}.{payload_base64}"
     
-    def build_authentications_header(self, pageAuthUrl, authToken=None, webTrackId=None) -> Dict[str, str]:
+    def build_authentications_header(self, pageAuthUrl, authToken=None, webTrackId=None, additional_headers = {}) -> Dict[str, str]:
         oauth_headers: Dict[str, str] = {}
         web_track_id: Dict[str, str] = {}
         if authToken:
@@ -165,7 +165,8 @@ class ScotiaClient:
             "x-login-id": username,
             "x-remember-user": "true",
             **oauth_headers,
-            **web_track_id
+            **web_track_id,
+            **additional_headers
         }
         return headers
     
@@ -221,8 +222,6 @@ class ScotiaClient:
         
         # decode the bns-auth-saved-users cookie again
         bns_auth_saved_users = page.context.cookies()
-        # TODO the response here does not actually contain the signed 2FA JWT token for some reason
-        # I'll have to figure out why, for now, this just forces to always have 2FA
         bns_auth_saved_users = next(
             (cookie for cookie in bns_auth_saved_users if "bns-auth-saved-users" in cookie["name"]),
             None
@@ -281,7 +280,8 @@ class ScotiaClient:
         
         # Check if the bypass_akamai cookies are present
         bypass_akamai_cookies = [
-            cookie for cookie in page_cookies if cookie["name"] in ["bm_sv", "bm_sz", "_abck", "ak_bmsc", "AKA_A2", "bm_mi"]
+            cookie for cookie in page_cookies if cookie["name"] in ["bm_sv", "bm_sz", "_abck", 
+                                                                    "ak_bmsc", "AKA_A2", "bm_mi", "bmuid"]
         ]
         if not bypass_akamai_cookies:
             raise Exception("Missing bypass_akamai cookies in current context, cookies: " + str(page_cookies))
@@ -365,6 +365,7 @@ class ScotiaClient:
                                          headers=self.build_authentications_header(page.url, auth_token))
             auth_with_code = None
             web_track_id = None
+            additional_headers = {}
 
             print("--------- STEP 3 ---------")
             while True:
@@ -376,7 +377,8 @@ class ScotiaClient:
                         self.sleep(5)
                         response = page.request.post(auth_url_with_key, 
                                                      data=json.dumps(solved_challenges),
-                                                     headers=self.build_authentications_header(page.url, auth_token, web_track_id))
+                                                     headers=self.build_authentications_header(page.url, auth_token, 
+                                                                                               web_track_id, additional_headers=additional_headers))
                         continue
                     raise Exception(f"Expected 2xx, got {response.status}")
 
@@ -406,10 +408,13 @@ class ScotiaClient:
                 
                 print(f", selected challenge: {selected_challenge['type']}")
 
+                additional_headers = {"x-bff-action": "tmp-cookie-2sv-token"} if selected_challenge["type"] == "POLLING" else {}
+
                 selected_challenge["value"] = None
                 response = page.context.request.post(auth_url_with_key, 
                                              data=json.dumps([selected_challenge]),
-                                             headers=self.build_authentications_header(page.url, auth_token, web_track_id))
+                                             headers=self.build_authentications_header(page.url, auth_token, web_track_id, 
+                                                                                       additional_headers=additional_headers))
                 self.sleep(5)
 
             print("--------- STEP 4 ---------")

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 	"github.com/vpnda/sandwich-sync/pkg/models"
@@ -44,7 +45,12 @@ func (l *LunchMoneySyncer) SyncBalances(ctx context.Context) error {
 
 		if localAccount.BalanceLastUpdated.After(*lunchMoneyAccount.BalanceLastUpdated) {
 			log.Info().Int64("account", localAccount.LunchMoneyId).Msg("Updating balance in LunchMoney to match local balance")
-			err := l.client.UpdateAccountBalance(ctx, localAccount.LunchMoneyId, localAccount.Balance, localAccount.BalanceLastUpdated)
+			// lower-case the curreny code to match LunchMoney's format
+			localAccount.Balance.Currency = strings.ToLower(localAccount.Balance.Currency)
+			err := l.client.UpdateAccountBalance(ctx,
+				localAccount.LunchMoneyId,
+				localAccount.Balance,
+				localAccount.BalanceLastUpdated)
 			if err != nil {
 				return err
 			}

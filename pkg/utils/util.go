@@ -1,4 +1,4 @@
-package scotia
+package utils
 
 import (
 	"fmt"
@@ -12,11 +12,15 @@ func (fn roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return fn(r)
 }
 
-func debugRoundTripper() http.RoundTripper {
+func DebugRoundTripper() http.RoundTripper {
+	return DebugRoundTripperWithUnderlying(http.DefaultTransport)
+}
+
+func DebugRoundTripperWithUnderlying(u http.RoundTripper) http.RoundTripper {
 	return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		d, _ := httputil.DumpRequest(r, true)
 		fmt.Println(string(d))
-		res, err := http.DefaultTransport.RoundTrip(r)
+		res, err := u.RoundTrip(r)
 		if err == nil {
 			d, _ := httputil.DumpResponse(res, true)
 			fmt.Println(string(d))
