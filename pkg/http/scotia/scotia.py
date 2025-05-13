@@ -66,7 +66,14 @@ class ScotiaClient:
         self.restore_session()
 
     def get_credentials(self):
-        return self.credentials
+        user, passwd = self.credentials
+        # decode the masked ID from the multi-user cookie to set the proper user
+        if self.session:
+            encoded_value = self.session.auth_session.multi_user_cookie["value"]
+            decoded_value = json.loads(unquote(encoded_value))
+            user = decoded_value[0]["maskedId"]
+
+        return user, passwd
 
     def handle_password_challenge(self, challenge):
         user, password = self.get_credentials()
@@ -250,6 +257,7 @@ class ScotiaClient:
                     "bypass_akamai": self.session.client_session.bypass_akamai
                 }
             }, f)
+        print(f"Session saved to {self.session_file}")
 
     def sleep(self, seconds):
         """
@@ -448,7 +456,6 @@ class ScotiaClient:
             print("Authentication successful")
             # Save the session to a file
             self.save_session()
-            print(f"Session saved to {self.session_file}")
             browser.close()
 
 client = ScotiaClient("config.yaml")

@@ -19,5 +19,6 @@ const (
 )
 
 var (
-	ErrAuthRedirect = fmt.Errorf("got redirect")
+	ErrAuthRedirect      = fmt.Errorf("got redirect")
+	ErrReadingConfigFile = fmt.Errorf("error reading config file")
 )
