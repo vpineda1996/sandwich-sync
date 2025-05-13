@@ -81,7 +81,7 @@ func (l *LunchMoneySyncer) enrichWithAccounts(ctx context.Context,
 
 	for _, transaction := range unsyncedTransactions {
 		// find the account for the transaction
-		account, err := l.accountSelector.FindPossibleAccountForTransaction(ctx, transaction)
+		account, err := l.accountMapper.FindPossibleAccountForTransaction(ctx, transaction)
 		if err != nil {
 			return nil, err
 		}

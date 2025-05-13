@@ -8,10 +8,10 @@ import (
 )
 
 type LunchMoneySyncer struct {
-	client          lm.LunchMoneyClientInterface
-	database        db.DBInterface
-	accountSelector *AccountMapper
-	forceSync       bool
+	client        lm.LunchMoneyClientInterface
+	database      db.DBInterface
+	accountMapper *AccountMapper
+	forceSync     bool
 }
 
 func NewLunchMoneySyncer(ctx context.Context, apiKey string, database db.DBInterface) (*LunchMoneySyncer, error) {
@@ -26,8 +26,12 @@ func NewLunchMoneySyncer(ctx context.Context, apiKey string, database db.DBInter
 	}
 
 	return &LunchMoneySyncer{
-		client:          c,
-		database:        database,
-		accountSelector: as,
+		client:        c,
+		database:      database,
+		accountMapper: as,
 	}, nil
+}
+
+func (s *LunchMoneySyncer) GetAccountMapper() *AccountMapper {
+	return s.accountMapper
 }

@@ -83,9 +83,9 @@ func TestSyncTransactions(t *testing.T) {
 
 	// Create the syncer
 	syncer := &LunchMoneySyncer{
-		client:          mockClient,
-		database:        mockDB,
-		accountSelector: mockSelector,
+		client:        mockClient,
+		database:      mockDB,
+		accountMapper: mockSelector,
 	}
 
 	// Test syncing transactions
@@ -252,8 +252,8 @@ func TestEnrichWithAccounts(t *testing.T) {
 
 	// Create the syncer
 	syncer := &LunchMoneySyncer{
-		client:          mockClient,
-		accountSelector: mockSelector,
+		client:        mockClient,
+		accountMapper: mockSelector,
 	}
 
 	// Create test transactions

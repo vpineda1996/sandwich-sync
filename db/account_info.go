@@ -68,6 +68,7 @@ func (db *DB) GetAccounts() ([]models.LunchMoneyAccount, error) {
 	SELECT 
 		lunchmoney_account_id, balance_value, balance_currency, balance_updated_at, is_plaid
 	FROM account_info
+	WHERE lunchmoney_account_id >= 0
 	`
 	rows, err := db.Query(query)
 	if err != nil {

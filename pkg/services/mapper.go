@@ -59,6 +59,22 @@ func (is *AccountMapper) FindPossibleAccountForTransaction(ctx context.Context, 
 	return is.selectAccountInteractive(transaction.SourceAccountName)
 }
 
+func (is *AccountMapper) FindPossibleAccountForExternal(ctx context.Context, externalAccount *models.ExternalAccount) (*models.AccountMapping, error) {
+	// Fetch mapping from the database
+	mapping, err := is.db.GetAccountMapping(externalAccount.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if mapping != nil {
+		return mapping, nil
+	}
+
+	fmt.Printf("Could not find account for external account [%s] %s (%s). Please select one:\n",
+		externalAccount.Name, externalAccount.Name, externalAccount.Balance.ToMoney().Display())
+	return is.selectAccountInteractive(externalAccount.Name)
+}
+
 func (is *AccountMapper) selectAccountInteractive(sourceAccountName string) (*models.AccountMapping, error) {
 	accounts, err := is.client.ListAccounts(context.Background())
 	if err != nil {
@@ -70,17 +86,23 @@ func (is *AccountMapper) selectAccountInteractive(sourceAccountName string) (*mo
 	}
 
 	var selection int
-	fmt.Printf("Enter the number of the account you want to map %q: ", sourceAccountName)
+	fmt.Printf("Enter the number of the account you want to map %q or -1 to always ignore it: ", sourceAccountName)
 	_, err = fmt.Scan(&selection)
-	if err != nil || selection < 0 || selection >= len(accounts) {
+	if err != nil || selection < -1 || selection >= len(accounts) {
 		return nil, fmt.Errorf("invalid selection")
 	}
-
-	selected := &accounts[selection]
-	mapping := &models.AccountMapping{
-		LunchMoneyId: selected.LunchMoneyId,
-		ExternalName: sourceAccountName,
-		IsPlaid:      selected.IsPlaid,
+	var mapping *models.AccountMapping
+	if selection == -1 {
+		mapping = &models.AccountMapping{
+			LunchMoneyId: -1,
+			ExternalName: sourceAccountName,
+		}
+	} else {
+		mapping = &models.AccountMapping{
+			LunchMoneyId: accounts[selection].LunchMoneyId,
+			ExternalName: sourceAccountName,
+			IsPlaid:      accounts[selection].IsPlaid,
+		}
 	}
 
 	// Save the mapping to the database

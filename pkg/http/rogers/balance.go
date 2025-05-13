@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"net/http"
 
-	iface "github.com/vpnda/sandwich-sync/pkg/http"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 )
 
 // UpdateAccountBalances implements http.BalanceFetcher.
-func (c *RogersBankClient) UpdateAccountBalances(ctx context.Context, balanceStorage iface.BalanceStorer) error {
+func (c *RogersBankClient) FetchAccountBalances(ctx context.Context) ([]models.ExternalAccount, error) {
 	if !c.IsAuthenticated() {
-		return fmt.Errorf("client is not authenticated")
+		return nil, fmt.Errorf("client is not authenticated")
 	}
 
 	detailReq, _ := http.NewRequestWithContext(ctx, http.MethodGet,
@@ -22,7 +21,7 @@ func (c *RogersBankClient) UpdateAccountBalances(ctx context.Context, balanceSto
 	detailReq.Header = getCommonHeaders()
 	detailResp, err := c.client.Do(detailReq)
 	if err != nil {
-		return fmt.Errorf("activity request failed: %w", err)
+		return nil, fmt.Errorf("activity request failed: %w", err)
 	}
 	defer detailResp.Body.Close()
 
@@ -35,16 +34,20 @@ func (c *RogersBankClient) UpdateAccountBalances(ctx context.Context, balanceSto
 
 	var detail detailResponse
 	if err := json.NewDecoder(detailResp.Body).Decode(&detail); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if detail.CurrentBalance.Value == "" {
-		return fmt.Errorf("empty balance value")
+		return nil, fmt.Errorf("empty balance value")
 	}
 
-	err = balanceStorage.UpsertAccountBalance(externalAccountName, models.Amount{
-		Value:    detail.CurrentBalance.Value,
-		Currency: detail.CurrentBalance.Currency,
-	})
-	return err
+	return []models.ExternalAccount{
+		{
+			Name: externalAccountName,
+			Balance: models.Amount{
+				Value:    detail.CurrentBalance.Value,
+				Currency: detail.CurrentBalance.Currency,
+			},
+		},
+	}, nil
 }

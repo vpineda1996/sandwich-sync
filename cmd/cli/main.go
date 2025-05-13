@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/vpnda/sandwich-sync/db"
@@ -17,7 +18,6 @@ import (
 	"github.com/vpnda/sandwich-sync/pkg/http/scotia"
 	"github.com/vpnda/sandwich-sync/pkg/http/ws"
 	"github.com/vpnda/sandwich-sync/pkg/models"
-	"github.com/vpnda/sandwich-sync/pkg/parser"
 	"github.com/vpnda/sandwich-sync/pkg/services"
 )
 
@@ -60,9 +60,9 @@ func init() {
 	replCmd := &cobra.Command{
 		Use:   "repl",
 		Short: "Start an interactive REPL",
-		Long:  `Start an interactive REPL for executing curl-like commands.`,
+		Long:  `Start an interactive REPL for executing commands.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runREPL()
+			runREPL(initReplState(cmd.Context()))
 		},
 	}
 
@@ -78,39 +78,57 @@ func init() {
 	rootCmd.AddCommand(replCmd, configCmd)
 }
 
-func runREPL() {
-	fmt.Println("Welcome to the Lunchmoney REPL!")
-	fmt.Println("Type 'exit' or 'quit' to exit.")
-	fmt.Println("Enter a curl-like command to fetch transactions.")
-	fmt.Println()
-
+func initReplState(ctx context.Context) replState {
 	// Initialize database
 	database, err := db.New(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error connecting to database: %v\n", err)
 		os.Exit(1)
 	}
-	defer database.Close()
 
-	if err := database.Initialize(); err != nil {
+	// Get the API key from the configuration
+	apiKey, err := config.GetLunchMoneyAPIKey()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting API key from config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Please set your API key in config.yaml\n")
+		os.Exit(1)
+	}
+
+	lsyncer, err := services.NewLunchMoneySyncer(ctx, apiKey, database)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating LunchMoney syncer: %v\n", err)
+		os.Exit(1)
+	}
+	return replState{
+		db:       database,
+		lmSyncer: lsyncer,
+	}
+}
+
+type replState struct {
+	db       db.DBInterface
+	lmSyncer *services.LunchMoneySyncer
+}
+
+func runREPL(state replState) {
+	fmt.Println("Welcome to the Lunchmoney REPL!")
+	fmt.Println("Type 'exit' or 'quit' to exit.")
+	fmt.Println("Enter a command to pull/push transactions.")
+	fmt.Println()
+
+	// Close the database once you are done
+	defer state.db.Close()
+
+	if err := state.db.Initialize(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing database: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Create HTTP client
-	client := rogers.NewCurlClient()
-
 	// Start REPL
 	scanner := bufio.NewScanner(os.Stdin)
-	var multilineInput strings.Builder
-	isMultiline := false
 
 	for {
-		if isMultiline {
-			fmt.Print("... ")
-		} else {
-			fmt.Print("> ")
-		}
+		fmt.Print("> ")
 
 		if !scanner.Scan() {
 			break
@@ -119,70 +137,47 @@ func runREPL() {
 		line := scanner.Text()
 		trimmedLine := strings.TrimSpace(line)
 
-		if trimmedLine == "" && !isMultiline {
+		if trimmedLine == "" {
 			continue
 		}
 
-		if (trimmedLine == "exit" || trimmedLine == "quit") && !isMultiline {
+		if trimmedLine == "exit" || trimmedLine == "quit" {
 			break
 		}
 
-		if trimmedLine == "help" && !isMultiline {
+		if trimmedLine == "help" {
 			printHelp()
 			continue
 		}
 
-		if trimmedLine == "config" && !isMultiline {
+		if trimmedLine == "config" {
 			showConfig()
 			continue
 		}
 
-		if strings.HasPrefix(trimmedLine, "list") && !isMultiline {
-			listTransactions(database)
+		if strings.HasPrefix(trimmedLine, "list") {
+			state.listTransactions()
 			continue
 		}
 
-		if strings.HasPrefix(trimmedLine, "add") && !isMultiline {
-			addTransaction(trimmedLine, database)
+		if strings.HasPrefix(trimmedLine, "add") {
+			state.addTransaction(trimmedLine)
 			continue
 		}
 
-		if strings.HasPrefix(trimmedLine, "sync") && !isMultiline {
-			syncState(database)
+		if strings.HasPrefix(trimmedLine, "sync") {
+			state.syncState()
 			continue
 		}
 
-		if strings.HasPrefix(trimmedLine, "fetch") && !isMultiline {
-			processTransactionFetch(trimmedLine, database)
+		if strings.HasPrefix(trimmedLine, "fetch") {
+			state.processTransactionFetch(trimmedLine)
 			continue
 		}
 
-		if (strings.HasPrefix(trimmedLine, "remove") || strings.HasPrefix(trimmedLine, "delete")) && !isMultiline {
-			removeTransaction(trimmedLine, database)
+		if strings.HasPrefix(trimmedLine, "remove") || strings.HasPrefix(trimmedLine, "delete") {
+			state.removeTransaction(trimmedLine)
 			continue
-		}
-
-		// Handle multiline input
-		if strings.HasSuffix(trimmedLine, "\\") {
-			// Remove the trailing backslash and add to the buffer
-			multilineInput.WriteString(trimmedLine[:len(trimmedLine)-1])
-			multilineInput.WriteString(" ")
-			isMultiline = true
-			continue
-		} else if isMultiline {
-			// Add the last line and process the complete command
-			multilineInput.WriteString(line)
-			input := multilineInput.String()
-
-			// Process curl command
-			processCurlCommand(input, client, database)
-
-			// Reset for next command
-			multilineInput.Reset()
-			isMultiline = false
-		} else {
-			// Single line command
-			processCurlCommand(line, client, database)
 		}
 	}
 
@@ -191,7 +186,7 @@ func runREPL() {
 	}
 }
 
-func processTransactionFetch(trimmedLine string, database *db.DB) {
+func (r *replState) processTransactionFetch(trimmedLine string) {
 	// Parse the fetch command
 	parts := strings.Fields(trimmedLine)
 	if len(parts) < 2 {
@@ -205,17 +200,17 @@ func processTransactionFetch(trimmedLine string, database *db.DB) {
 
 	switch fetchType {
 	case "wealthsimple":
-		fetchTransactionsWs(database)
+		r.fetchTransactionsWs()
 	case "rogers":
-		fetchTransactionsRogers(database)
+		r.fetchTransactionsRogers()
 	case "scotia":
-		fetchTransactionsScotia(database)
+		r.fetchTransactionsScotia()
 	default:
 		fmt.Println("Unknown fetch type. Supported types are: wealthsimple, rogers, scotia")
 	}
 }
 
-func fetchTransactionsScotia(database *db.DB) {
+func (r *replState) fetchTransactionsScotia() {
 	client, err := scotia.NewScotiaClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating Scotia client: %v\n", err)
@@ -225,19 +220,19 @@ func fetchTransactionsScotia(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error authenticating Scotia client: %v\n", err)
 		return
 	}
-	syncFromFetcher(client, database)
+	r.syncFromFetcher(client)
 }
 
-func fetchTransactionsWs(database *db.DB) {
+func (r *replState) fetchTransactionsWs() {
 	client, err := ws.NewWealthsimpleClient(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating Wealthsimple client: %v\n", err)
 		return
 	}
-	syncFromFetcher(client, database)
+	r.syncFromFetcher(client)
 }
 
-func fetchTransactionsRogers(database *db.DB) {
+func (r *replState) fetchTransactionsRogers() {
 	deviceId, err := config.GetRogersDeviceId()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting Rogers device ID: %v\n", err)
@@ -255,15 +250,16 @@ func fetchTransactionsRogers(database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error authenticating: %v\n", err)
 		return
 	}
-	syncFromFetcher(client, database)
+	r.syncFromFetcher(client)
 }
 
-func syncFromFetcher(client http.Fetcher, database *db.DB) {
-	err := client.UpdateAccountBalances(context.Background(), database)
+func (r *replState) syncFromFetcher(client http.Fetcher) {
+	accountBalances, err := client.FetchAccountBalances(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error updating account balances: %v\n", err)
 		return
 	}
+	err = r.updateAccountBalances(accountBalances)
 
 	// Fetch transactions
 	transactions, err := client.FetchTransactions(context.Background())
@@ -271,13 +267,27 @@ func syncFromFetcher(client http.Fetcher, database *db.DB) {
 		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
 		return
 	}
-	insertTransactionsToDb(database, transactions)
-
+	r.insertTransactionsToDb(transactions)
 }
 
-func insertTransactionsToDb(database *db.DB, transactions []models.TransactionWithAccount) {
+func (r *replState) updateAccountBalances(accountBalances []models.ExternalAccount) error {
+	for _, account := range accountBalances {
+		_, err := r.lmSyncer.GetAccountMapper().FindPossibleAccountForExternal(context.Background(), &account)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error finding account mapping: %v\n", err)
+		}
+		if err := r.db.UpsertAccountBalance(account.Name, account.Balance); err != nil {
+			fmt.Fprintf(os.Stderr, "Error updating account balance: %v\n", err)
+			return err
+		}
+		log.Info().Str("account", account.Name).Msg("Account balance updated successfully")
+	}
+	return nil
+}
+
+func (r *replState) insertTransactionsToDb(transactions []models.TransactionWithAccount) {
 	for _, tx := range transactions {
-		if tx, err := database.GetTransactionByReference(tx.ReferenceNumber); tx != nil && err == nil {
+		if tx, err := r.db.GetTransactionByReference(tx.ReferenceNumber); tx != nil && err == nil {
 			fmt.Printf("Transaction %s already exists in the database\n", tx.ReferenceNumber)
 			continue
 		} else if err != nil {
@@ -285,7 +295,7 @@ func insertTransactionsToDb(database *db.DB, transactions []models.TransactionWi
 			continue
 		}
 
-		if err := database.SaveTransaction(&tx); err != nil {
+		if err := r.db.SaveTransaction(&tx); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
 			continue
 		}
@@ -293,84 +303,22 @@ func insertTransactionsToDb(database *db.DB, transactions []models.TransactionWi
 	}
 }
 
-func syncState(database *db.DB) {
-	// Get the API key from the configuration
-	apiKey, err := config.GetLunchMoneyAPIKey()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting API key from config: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Please set your API key in config.yaml\n")
-		return
-	}
-
-	lsyncer, err := services.NewLunchMoneySyncer(context.Background(), apiKey, database)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating LunchMoney syncer: %v\n", err)
-		return
-	}
-
-	err = lsyncer.SyncTransactions(context.Background())
+func (r *replState) syncState() {
+	err := r.lmSyncer.SyncTransactions(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error syncing transactions: %v\n", err)
 		return
 	}
 
-	err = lsyncer.SyncBalances(context.Background())
+	err = r.lmSyncer.SyncBalances(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error syncing accounts: %v\n", err)
 		return
 	}
 }
 
-func processCurlCommand(input string, client *rogers.CurlClient, database *db.DB) {
-	// Parse curl command
-	cmd, err := parser.ParseCurlCommand(input)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing curl command: %v\n", err)
-		return
-	}
-
-	fmt.Println("Parsed command:")
-	fmt.Println(cmd)
-
-	// Add cookies to headers
-	if len(cmd.Cookies) > 0 {
-		var cookieStr strings.Builder
-		first := true
-		for key, value := range cmd.Cookies {
-			if !first {
-				cookieStr.WriteString("; ")
-			}
-			cookieStr.WriteString(key)
-			cookieStr.WriteString("=")
-			cookieStr.WriteString(value)
-			first = false
-		}
-		cmd.Headers["Cookie"] = cookieStr.String()
-	}
-
-	// Fetch transactions
-	fmt.Println("Fetching transactions...")
-	transactions, err := client.FetchTransactions(cmd.URL, cmd.Headers)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
-		return
-	}
-
-	fmt.Printf("Fetched %d transactions\n", len(transactions))
-
-	// Save transactions to database
-	for _, tx := range transactions {
-		if err := database.SaveTransaction(&tx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
-			continue
-		}
-	}
-
-	fmt.Printf("Saved %d transactions to database\n", len(transactions))
-}
-
-func listTransactions(database *db.DB) {
-	transactions, err := database.GetTransactions()
+func (r *replState) listTransactions() {
+	transactions, err := r.db.GetTransactions()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
 		return
@@ -395,7 +343,7 @@ func listTransactions(database *db.DB) {
 	}
 }
 
-func addTransaction(input string, database *db.DB) {
+func (r *replState) addTransaction(input string) {
 	// Parse the add command
 	// Format: add <reference_number> <amount> <currency> <merchant_name> <date> [<category>]
 	parts := strings.Fields(input)
@@ -461,7 +409,7 @@ func addTransaction(input string, database *db.DB) {
 	}
 
 	// Save transaction
-	if err := database.AddManualTransaction(tx); err != nil {
+	if err := r.db.AddManualTransaction(tx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error adding transaction: %v\n", err)
 		return
 	}
@@ -469,7 +417,7 @@ func addTransaction(input string, database *db.DB) {
 	fmt.Printf("Transaction %s added successfully\n", referenceNumber)
 }
 
-func removeTransaction(input string, database *db.DB) {
+func (r *replState) removeTransaction(input string) {
 	// Parse the remove command
 	// Format: remove <reference_number>
 	parts := strings.Fields(input)
@@ -484,7 +432,7 @@ func removeTransaction(input string, database *db.DB) {
 	referenceNumber := parts[1]
 
 	// Remove transaction
-	if err := database.RemoveTransaction(referenceNumber); err != nil {
+	if err := r.db.RemoveTransaction(referenceNumber); err != nil {
 		fmt.Fprintf(os.Stderr, "Error removing transaction: %v\n", err)
 		return
 	}
