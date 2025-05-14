@@ -59,7 +59,8 @@ func (s *ScotiaClient) AuthenticateDynamic(ctx context.Context) error {
 		}
 
 		err := s.authValidate(ctx)
-		if err != nil && !errors.Is(err, ErrAuthRedirect) && !errors.Is(err, ErrReadingConfigFile) {
+		if err != nil && !errors.Is(err, ErrAuthRedirect) &&
+			!errors.Is(err, ErrReadingConfigFile) && !errors.Is(err, ErrAuthTimeout) {
 			return fmt.Errorf("failed to validate auth: %w", err)
 		} else if err == nil {
 			log.Info().Msg("Auth validated successfully")
@@ -117,7 +118,13 @@ func (s *ScotiaClient) authValidate(ctx context.Context) error {
 			v.ToHttpCookie(),
 		})
 	}
-	return s.validateHealthySession(ctx, nil)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	err = s.validateHealthySession(ctx, nil)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("timeout while validating session: %w", ErrAuthTimeout)
+	}
+	return err
 }
 
 func (s *ScotiaClient) readSessionFile(_ context.Context) (session, error) {

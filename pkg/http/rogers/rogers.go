@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 
+	"github.com/rs/zerolog/log"
 	iface "github.com/vpnda/sandwich-sync/pkg/http"
+	"github.com/vpnda/sandwich-sync/pkg/utils"
 
 	"github.com/samber/lo"
 	"github.com/vpnda/sandwich-sync/pkg/models"
@@ -133,8 +135,8 @@ func (c *RogersBankClient) Authenticate(ctx context.Context, username, password 
 	c.accountId = authResult.Accounts[0].AccountID
 	c.customerId = authResult.Accounts[0].Customer.CustomerID
 
-	fmt.Println("Account ID:", c.accountId)
-	fmt.Println("Customer ID:", c.customerId)
+	log.Info().Str("accountId", c.accountId).Str("customerId", c.customerId).
+		Msg("Succesfully authenticated with Rogers Bank")
 
 	return nil
 }
@@ -174,6 +176,7 @@ func (c *RogersBankClient) FetchTransactions(ctx context.Context) ([]models.Tran
 			Transaction:       activity,
 			SourceAccountName: externalAccountName,
 		}
+		tx.Merchant.Name = utils.Capitalize(activity.Merchant.Name)
 		result = append(result, tx)
 	}
 
