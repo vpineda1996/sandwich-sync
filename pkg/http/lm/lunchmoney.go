@@ -40,6 +40,7 @@ func (c *LunchMoneyClient) ListAccounts(ctx context.Context) ([]models.LunchMone
 		accounts = append(accounts, models.LunchMoneyAccount{
 			LunchMoneyId: asset.ID,
 			Name:         asset.Name,
+			DisplayName:  asset.DisplayName,
 			Balance: models.Amount{
 				Value:    asset.Balance,
 				Currency: asset.Currency,

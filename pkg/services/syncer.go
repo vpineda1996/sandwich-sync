@@ -35,3 +35,7 @@ func NewLunchMoneySyncer(ctx context.Context, apiKey string, database db.DBInter
 func (s *LunchMoneySyncer) GetAccountMapper() *AccountMapper {
 	return s.accountMapper
 }
+
+func (s *LunchMoneySyncer) GetClient() lm.LunchMoneyClientInterface {
+	return s.client
+}

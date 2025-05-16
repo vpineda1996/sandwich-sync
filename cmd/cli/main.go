@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	"github.com/vpnda/sandwich-sync/db"
@@ -160,6 +161,11 @@ func runREPL(state replState) {
 
 		if strings.HasPrefix(trimmedLine, "list") {
 			state.listTransactions()
+			continue
+		}
+
+		if strings.HasPrefix(trimmedLine, "account") {
+			state.handleLunchMoneyAccounts(trimmedLine)
 			continue
 		}
 
@@ -329,6 +335,68 @@ func (r *replState) syncState() {
 	}
 }
 
+func (r *replState) handleLunchMoneyAccounts(input string) {
+	parts := strings.Fields(input)
+	if len(parts) < 2 {
+		fmt.Println("Invalid account command format.")
+		fmt.Println("Usage: account <list|disable>")
+		return
+	}
+
+	if parts[1] == "list" {
+		accounts, err := r.db.GetAccounts()
+		if err != nil {
+			log.Error().Err(err).Msg("Error fetching accounts")
+			return
+		}
+		lmAccounts, err := r.lmSyncer.GetClient().ListAccounts(context.Background())
+		if err != nil {
+			log.Error().Err(err).Msg("Error fetching accounts")
+			return
+		}
+		lmAccountsMap := lo.SliceToMap(lmAccounts, func(account models.LunchMoneyAccount) (int64, models.LunchMoneyAccount) {
+			return account.LunchMoneyId, account
+		})
+		for i := range accounts {
+			if account, ok := lmAccountsMap[accounts[i].LunchMoneyId]; ok {
+				accounts[i].Name = account.Name
+				accounts[i].DisplayName = account.DisplayName
+			}
+		}
+
+		if len(accounts) == 0 {
+			fmt.Println("No accounts found")
+			return
+		}
+
+		fmt.Printf("Found %d accounts:\n\n", len(accounts))
+		fmt.Printf("%-10s %-30s %15s %-15s %-15s\n", "LM ID", "Account Name", "Balance", "Currency", "Should Sync")
+		fmt.Println(strings.Repeat("-", 100))
+		for _, account := range accounts {
+			fmt.Printf("%-10d %-30s %15s %-15s %-7v\n",
+				account.LunchMoneyId,
+				account.DisplayName[:min(30, len(account.DisplayName))],
+				account.Balance.Value[:min(15, len(account.Balance.Value))],
+				account.Balance.Currency,
+				account.ShouldSync)
+		}
+	} else if parts[1] == "disable" {
+		if len(parts) < 3 {
+			fmt.Println("Usage: account disable <lunchmoney_id>")
+			return
+		}
+
+		lunchMoneyId := parts[2]
+		if err := r.db.DisableAccountSync(lunchMoneyId); err != nil {
+			log.Error().Err(err).Msg("Error disabling account")
+			return
+		}
+		log.Info().Str("account", lunchMoneyId).Msg("Account disabled successfully")
+	} else {
+		fmt.Println("Unknown command. Supported commands are: list, disable")
+	}
+}
+
 func (r *replState) listTransactions() {
 	transactions, err := r.db.GetTransactions()
 	if err != nil {
@@ -463,6 +531,8 @@ func printHelp() {
 	fmt.Println("  add <ref> <amount> <currency> <merchant> <date> [<category>]")
 	fmt.Println("                       - Add a transaction manually")
 	fmt.Println("  remove <ref>         - Remove a transaction by reference number")
+	fmt.Println("  account list         - List all accounts with balances and sync status")
+	fmt.Println("  account disable <id> - Disable syncing for an account by its LunchMoney ID")
 	fmt.Println("  exit, quit           - Exit the REPL")
 	fmt.Println("  curl [command]       - Execute a curl-like command to fetch transactions")
 	fmt.Println()

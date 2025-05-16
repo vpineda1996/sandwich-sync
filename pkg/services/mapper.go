@@ -56,7 +56,7 @@ func (is *AccountMapper) FindPossibleAccountForTransaction(ctx context.Context, 
 
 	fmt.Printf("Could not find account for transaction [%s] %s (%s). Please select one:\n",
 		transaction.ReferenceNumber, transaction.Merchant.Name, transaction.Amount.ToMoney().Display())
-	return is.selectAccountInteractive(transaction.SourceAccountName)
+	return is.selectAccountInteractive(transaction.SourceAccountName, "")
 }
 
 func (is *AccountMapper) FindPossibleAccountForExternal(ctx context.Context, externalAccount *models.ExternalAccount) (*models.AccountMapping, error) {
@@ -72,21 +72,28 @@ func (is *AccountMapper) FindPossibleAccountForExternal(ctx context.Context, ext
 
 	fmt.Printf("Could not find account for external account [%s] %s (%s). Please select one:\n",
 		externalAccount.Name, externalAccount.Name, externalAccount.Balance.ToMoney().Display())
-	return is.selectAccountInteractive(externalAccount.Name)
+	return is.selectAccountInteractive(externalAccount.Name, externalAccount.Description)
 }
 
-func (is *AccountMapper) selectAccountInteractive(sourceAccountName string) (*models.AccountMapping, error) {
+func (is *AccountMapper) selectAccountInteractive(sourceAccountName string, sourceAccountDescription string) (*models.AccountMapping, error) {
 	accounts, err := is.client.ListAccounts(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
 	for i, account := range accounts {
-		fmt.Printf("\t %-2d. %s\n", i, account.Name)
+		description := account.DisplayName
+		if description == "" {
+			description = account.Name
+		}
+		fmt.Printf("\t %-2d. %s\n", i, description)
 	}
 
 	var selection int
-	fmt.Printf("Enter the number of the account you want to map %q or -1 to always ignore it: ", sourceAccountName)
+	if sourceAccountDescription == "" {
+		sourceAccountDescription = sourceAccountName
+	}
+	fmt.Printf("Enter the number of the account you want to map %q or -1 to always ignore it: ", sourceAccountDescription)
 	_, err = fmt.Scan(&selection)
 	if err != nil || selection < -1 || selection >= len(accounts) {
 		return nil, fmt.Errorf("invalid selection")
@@ -117,7 +124,7 @@ func (is *AccountMapper) selectAccountInteractive(sourceAccountName string) (*mo
 }
 
 func (is *AccountMapper) SelectDefaultAccount() error {
-	sa, err := is.selectAccountInteractive(DefaultAccountName)
+	sa, err := is.selectAccountInteractive(DefaultAccountName, "")
 	if err != nil {
 		return err
 	}

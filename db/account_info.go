@@ -15,15 +15,45 @@ func (db *DB) createAccountInfoTable() error {
 		balance_value TEXT,
 		balance_currency TEXT,
 		balance_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		is_plaid BOOLEAN
+		is_plaid BOOLEAN DEFAULT false,
+		should_sync BOOLEAN DEFAULT true
 	)
 	`
-
 	_, err := db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("failed to create account_info table: %w", err)
 	}
+
 	return err
+}
+
+func (db *DB) DisableAccountSync(lunchMoneyId string) error {
+	query := `
+	UPDATE account_info
+	SET should_sync = false
+	WHERE lunchmoney_account_id = ?
+	`
+	_, err := db.Exec(query, lunchMoneyId)
+	if err != nil {
+		return fmt.Errorf("failed to disable account sync: %w", err)
+	}
+	return nil
+}
+
+func (db *DB) IsAccountSyncEnabled(lunchMoneyId int64) (bool, error) {
+	query := `
+	SELECT should_sync FROM account_info WHERE lunchmoney_account_id = ?
+	`
+	row := db.QueryRow(query, lunchMoneyId)
+	var shouldSync bool
+	err := row.Scan(&shouldSync)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to query account sync status: %w", err)
+	}
+	return shouldSync, nil
 }
 
 // UpsertAccountBalance saves the balance for a given external account ID
@@ -52,7 +82,8 @@ func (db *DB) UpsertAccountBalance(externalId string, balance models.Amount) err
 	DO UPDATE SET 
 		balance_value = excluded.balance_value,
 		balance_currency = excluded.balance_currency,
-		balance_updated_at = CURRENT_TIMESTAMP
+		balance_updated_at = CURRENT_TIMESTAMP,
+		is_plaid = excluded.is_plaid
 	`
 
 	_, err = db.Exec(query, lunchmoneyAccountId, balance.Value, balance.Currency)
@@ -66,7 +97,7 @@ func (db *DB) UpsertAccountBalance(externalId string, balance models.Amount) err
 func (db *DB) GetAccounts() ([]models.LunchMoneyAccount, error) {
 	query := `
 	SELECT 
-		lunchmoney_account_id, balance_value, balance_currency, balance_updated_at, is_plaid
+		lunchmoney_account_id, balance_value, balance_currency, balance_updated_at, is_plaid, should_sync
 	FROM account_info
 	WHERE lunchmoney_account_id >= 0
 	`
@@ -84,6 +115,7 @@ func (db *DB) GetAccounts() ([]models.LunchMoneyAccount, error) {
 			&account.Balance.Currency,
 			&account.BalanceLastUpdated,
 			&account.IsPlaid,
+			&account.ShouldSync,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan account: %w", err)

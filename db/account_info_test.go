@@ -98,3 +98,83 @@ func TestGetAccounts(t *testing.T) {
 		assert.WithinDuration(t, now, *accounts[0].BalanceLastUpdated, time.Second)
 	}
 }
+func TestDisableAccountSync(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Insert an account that has sync enabled by default
+	_, err := db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, should_sync) VALUES (?, ?, ?, ?)",
+		42, "300.00", "USD", true)
+	assert.NoError(t, err)
+
+	// Verify initial state
+	var shouldSync bool
+	err = db.QueryRow("SELECT should_sync FROM account_info WHERE lunchmoney_account_id = ?", 42).Scan(&shouldSync)
+	assert.NoError(t, err)
+	assert.True(t, shouldSync)
+
+	// Disable sync
+	err = db.DisableAccountSync("42")
+	assert.NoError(t, err)
+
+	// Verify sync was disabled
+	err = db.QueryRow("SELECT should_sync FROM account_info WHERE lunchmoney_account_id = ?", 42).Scan(&shouldSync)
+	assert.NoError(t, err)
+	assert.False(t, shouldSync)
+}
+
+func TestIsAccountSyncEnabled(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Test 1: Account exists with sync enabled
+	_, err := db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, should_sync) VALUES (?, ?, ?, ?)",
+		100, "500.00", "USD", true)
+	assert.NoError(t, err)
+
+	// Test 2: Account exists with sync disabled
+	_, err = db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, should_sync) VALUES (?, ?, ?, ?)",
+		101, "750.00", "USD", false)
+	assert.NoError(t, err)
+
+	// Test cases
+	testCases := []struct {
+		name          string
+		accountID     int64
+		expectedSync  bool
+		expectedError bool
+	}{
+		{
+			name:          "Account with sync enabled",
+			accountID:     100,
+			expectedSync:  true,
+			expectedError: false,
+		},
+		{
+			name:          "Account with sync disabled",
+			accountID:     101,
+			expectedSync:  false,
+			expectedError: false,
+		},
+		{
+			name:          "Non-existent account",
+			accountID:     999,
+			expectedSync:  false,
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			syncEnabled, err := db.IsAccountSyncEnabled(tc.accountID)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tc.expectedSync, syncEnabled)
+		})
+	}
+}

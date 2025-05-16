@@ -137,7 +137,8 @@ func (s *ScotiaClient) FetchTransactions(ctx context.Context) ([]models.Transact
 }
 
 func (s *ScotiaClient) validateHealthySession(ctx context.Context, headers map[string]string) error {
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://secure.scotiabank.com/api/accounts/summary", nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"https://secure.scotiabank.com/api/accounts/summary", nil)
 	if err != nil {
 		return err
 	}

@@ -43,6 +43,10 @@ func (l *LunchMoneySyncer) SyncBalances(ctx context.Context) error {
 			continue
 		}
 
+		if !localAccount.ShouldSync {
+			continue
+		}
+
 		if localAccount.BalanceLastUpdated.After(*lunchMoneyAccount.BalanceLastUpdated) {
 			log.Info().Int64("account", localAccount.LunchMoneyId).Msg("Updating balance in LunchMoney to match local balance")
 			// lower-case the curreny code to match LunchMoney's format
