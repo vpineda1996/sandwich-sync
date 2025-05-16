@@ -20,8 +20,8 @@ type DBInterface interface {
 
 	GetAccounts() ([]models.LunchMoneyAccount, error)
 	UpsertAccountBalance(externalAccountName string, balance models.Amount) error
-	DisableAccountSync(lunchMoneyId string) error
-	IsAccountSyncEnabled(lunchMoneyId int64) (bool, error)
+	DisableSyncOptions(lunchMoneyId string, syncOption models.SyncOption) error
+	IsSyncOptionEnabled(lunchMoneyId int64, syncOption models.SyncOption) (bool, error)
 }
 
 // Ensure DB implements DBInterface
