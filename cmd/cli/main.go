@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	"github.com/vpnda/sandwich-sync/db"
@@ -34,7 +36,7 @@ func Execute() error {
 func init() {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
+		log.Error().Err(err).Msg("Error getting home directory")
 		os.Exit(1)
 	}
 
@@ -44,8 +46,8 @@ func init() {
 	if err := config.InitGlobalConfig("config.yaml"); err != nil {
 		// Only print a warning if the file doesn't exist, as GetConfig will create it later
 		if !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to load configuration: %v\n", err)
-			fmt.Fprintf(os.Stderr, "A default configuration will be used.\n")
+			log.Warn().Err(err).Msg("Failed to load configuration")
+			log.Warn().Msg("A default configuration will be used")
 		}
 	}
 
@@ -76,27 +78,29 @@ func init() {
 	}
 
 	rootCmd.AddCommand(replCmd, configCmd)
+
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 }
 
 func initReplState(ctx context.Context) replState {
 	// Initialize database
 	database, err := db.New(dbPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error connecting to database: %v\n", err)
+		log.Error().Err(err).Msg("Error connecting to database")
 		os.Exit(1)
 	}
 
 	// Get the API key from the configuration
 	apiKey, err := config.GetLunchMoneyAPIKey()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting API key from config: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Please set your API key in config.yaml\n")
+		log.Error().Err(err).Msg("Error getting API key from config")
+		log.Error().Msg("Please set your API key in config.yaml")
 		os.Exit(1)
 	}
 
 	lsyncer, err := services.NewLunchMoneySyncer(ctx, apiKey, database)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating LunchMoney syncer: %v\n", err)
+		log.Error().Err(err).Msg("Error creating LunchMoney syncer")
 		os.Exit(1)
 	}
 	return replState{
@@ -120,7 +124,7 @@ func runREPL(state replState) {
 	defer state.db.Close()
 
 	if err := state.db.Initialize(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing database: %v\n", err)
+		log.Error().Err(err).Msg("Error initializing database")
 		os.Exit(1)
 	}
 
@@ -160,6 +164,11 @@ func runREPL(state replState) {
 			continue
 		}
 
+		if strings.HasPrefix(trimmedLine, "account") {
+			state.handleLunchMoneyAccounts(trimmedLine)
+			continue
+		}
+
 		if strings.HasPrefix(trimmedLine, "add") {
 			state.addTransaction(trimmedLine)
 			continue
@@ -182,7 +191,7 @@ func runREPL(state replState) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+		log.Error().Err(err).Msg("Error reading input")
 	}
 }
 
@@ -213,11 +222,11 @@ func (r *replState) processTransactionFetch(trimmedLine string) {
 func (r *replState) fetchTransactionsScotia() {
 	client, err := scotia.NewScotiaClient()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating Scotia client: %v\n", err)
+		log.Error().Err(err).Msg("Error creating Scotia client")
 		return
 	}
 	if err := client.AuthenticateDynamic(context.Background()); err != nil {
-		fmt.Fprintf(os.Stderr, "Error authenticating Scotia client: %v\n", err)
+		log.Error().Err(err).Msg("Error authenticating Scotia client")
 		return
 	}
 	r.syncFromFetcher(client)
@@ -226,7 +235,7 @@ func (r *replState) fetchTransactionsScotia() {
 func (r *replState) fetchTransactionsWs() {
 	client, err := ws.NewWealthsimpleClient(context.Background())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating Wealthsimple client: %v\n", err)
+		log.Error().Err(err).Msg("Error creating Wealthsimple client")
 		return
 	}
 	r.syncFromFetcher(client)
@@ -235,19 +244,19 @@ func (r *replState) fetchTransactionsWs() {
 func (r *replState) fetchTransactionsRogers() {
 	deviceId, err := config.GetRogersDeviceId()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting Rogers device ID: %v\n", err)
+		log.Error().Err(err).Msg("Error getting Rogers device ID")
 		return
 	}
 	client := rogers.NewRogersBankClient(deviceId)
 
 	username, password, err := config.GetRogersCredentials()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting Rogers credentials: %v\n", err)
+		log.Error().Err(err).Msg("Error getting Rogers credentials")
 		return
 	}
 
 	if err := client.Authenticate(context.Background(), username, password); err != nil {
-		fmt.Fprintf(os.Stderr, "Error authenticating: %v\n", err)
+		log.Error().Err(err).Msg("Error authenticating Rogers client")
 		return
 	}
 	r.syncFromFetcher(client)
@@ -256,19 +265,19 @@ func (r *replState) fetchTransactionsRogers() {
 func (r *replState) syncFromFetcher(client http.Fetcher) {
 	accountBalances, err := client.FetchAccountBalances(context.Background())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching account balances: %v\n", err)
+		log.Error().Err(err).Msg("Error fetching account balances")
 		return
 	}
 	err = r.updateAccountBalances(accountBalances)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error updating account balances: %v\n", err)
+		log.Error().Err(err).Msg("Error updating account balances")
 		return
 	}
 
 	// Fetch transactions
 	transactions, err := client.FetchTransactions(context.Background())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
+		log.Error().Err(err).Msg("Error fetching transactions")
 		return
 	}
 	r.insertTransactionsToDb(transactions)
@@ -278,10 +287,11 @@ func (r *replState) updateAccountBalances(accountBalances []models.ExternalAccou
 	for _, account := range accountBalances {
 		_, err := r.lmSyncer.GetAccountMapper().FindPossibleAccountForExternal(context.Background(), &account)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error finding account mapping: %v\n", err)
+			log.Error().Err(err).Msg("Error finding account mapping")
+			continue
 		}
 		if err := r.db.UpsertAccountBalance(account.Name, account.Balance); err != nil {
-			fmt.Fprintf(os.Stderr, "Error updating account balance: %v\n", err)
+			log.Error().Err(err).Msg("Error updating account balance")
 			return err
 		}
 		log.Info().Str("account", account.Name).Msg("Account balance updated successfully")
@@ -290,41 +300,107 @@ func (r *replState) updateAccountBalances(accountBalances []models.ExternalAccou
 }
 
 func (r *replState) insertTransactionsToDb(transactions []models.TransactionWithAccount) {
+	inserted, skipped := 0, 0
 	for _, tx := range transactions {
 		if tx, err := r.db.GetTransactionByReference(tx.ReferenceNumber); tx != nil && err == nil {
-			fmt.Printf("Transaction %s already exists in the database\n", tx.ReferenceNumber)
+			skipped++
 			continue
 		} else if err != nil {
-			fmt.Fprintf(os.Stderr, "Error checking transaction: %v\n", err)
+			log.Error().Err(err).Msg("Error checking transaction")
+			skipped++
 			continue
 		}
 
 		if err := r.db.SaveTransaction(&tx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving transaction: %v\n", err)
+			log.Error().Err(err).Msg("Error saving transaction")
 			continue
 		}
-		fmt.Printf("Transaction %s saved successfully\n", tx.ReferenceNumber)
+		log.Info().Str("transaction", tx.ReferenceNumber).Msg("Transaction saved successfully")
+		inserted++
 	}
+	log.Info().Int("inserted", inserted).Int("skipped", skipped).Msg("Transactions processed")
 }
 
 func (r *replState) syncState() {
 	err := r.lmSyncer.SyncTransactions(context.Background())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error syncing transactions: %v\n", err)
+		log.Error().Err(err).Msg("Error syncing transactions")
 		return
 	}
 
 	err = r.lmSyncer.SyncBalances(context.Background())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error syncing accounts: %v\n", err)
+		log.Error().Err(err).Msg("Error syncing balances")
 		return
+	}
+}
+
+func (r *replState) handleLunchMoneyAccounts(input string) {
+	parts := strings.Fields(input)
+	if len(parts) < 2 {
+		fmt.Println("Invalid account command format.")
+		fmt.Println("Usage: account <list|disable>")
+		return
+	}
+
+	if parts[1] == "list" {
+		accounts, err := r.db.GetAccounts()
+		if err != nil {
+			log.Error().Err(err).Msg("Error fetching accounts")
+			return
+		}
+		lmAccounts, err := r.lmSyncer.GetClient().ListAccounts(context.Background())
+		if err != nil {
+			log.Error().Err(err).Msg("Error fetching accounts")
+			return
+		}
+		lmAccountsMap := lo.SliceToMap(lmAccounts, func(account models.LunchMoneyAccount) (int64, models.LunchMoneyAccount) {
+			return account.LunchMoneyId, account
+		})
+		for i := range accounts {
+			if account, ok := lmAccountsMap[accounts[i].LunchMoneyId]; ok {
+				accounts[i].Name = account.Name
+				accounts[i].DisplayName = account.DisplayName
+			}
+		}
+
+		if len(accounts) == 0 {
+			fmt.Println("No accounts found")
+			return
+		}
+
+		fmt.Printf("Found %d accounts:\n\n", len(accounts))
+		fmt.Printf("%-10s %-30s %15s %-15s %-15s\n", "LM ID", "Account Name", "Balance", "Currency", "Should Sync")
+		fmt.Println(strings.Repeat("-", 100))
+		for _, account := range accounts {
+			fmt.Printf("%-10d %-30s %15s %-15s %-7v\n",
+				account.LunchMoneyId,
+				account.DisplayName[:min(30, len(account.DisplayName))],
+				account.Balance.Value[:min(15, len(account.Balance.Value))],
+				account.Balance.Currency,
+				account.ShouldSync)
+		}
+	} else if parts[1] == "disable" {
+		if len(parts) < 3 {
+			fmt.Println("Usage: account disable <lunchmoney_id>")
+			return
+		}
+
+		lunchMoneyId := parts[2]
+		if err := r.db.DisableAccountSync(lunchMoneyId); err != nil {
+			log.Error().Err(err).Msg("Error disabling account")
+			return
+		}
+		log.Info().Str("account", lunchMoneyId).Msg("Account disabled successfully")
+	} else {
+		fmt.Println("Unknown command. Supported commands are: list, disable")
 	}
 }
 
 func (r *replState) listTransactions() {
 	transactions, err := r.db.GetTransactions()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching transactions: %v\n", err)
+		log.Error().Err(err).Msg("Error fetching transactions")
 		return
 	}
 
@@ -414,11 +490,11 @@ func (r *replState) addTransaction(input string) {
 
 	// Save transaction
 	if err := r.db.AddManualTransaction(tx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error adding transaction: %v\n", err)
+		log.Error().Err(err).Msg("Error adding transaction")
 		return
 	}
 
-	fmt.Printf("Transaction %s added successfully\n", referenceNumber)
+	log.Info().Str("transaction", referenceNumber).Msg("Transaction added successfully")
 }
 
 func (r *replState) removeTransaction(input string) {
@@ -437,11 +513,11 @@ func (r *replState) removeTransaction(input string) {
 
 	// Remove transaction
 	if err := r.db.RemoveTransaction(referenceNumber); err != nil {
-		fmt.Fprintf(os.Stderr, "Error removing transaction: %v\n", err)
+		log.Error().Err(err).Msg("Error removing transaction")
 		return
 	}
 
-	fmt.Printf("Transaction %s removed successfully\n", referenceNumber)
+	log.Info().Str("transaction", referenceNumber).Msg("Transaction removed successfully")
 }
 
 func printHelp() {
@@ -455,6 +531,8 @@ func printHelp() {
 	fmt.Println("  add <ref> <amount> <currency> <merchant> <date> [<category>]")
 	fmt.Println("                       - Add a transaction manually")
 	fmt.Println("  remove <ref>         - Remove a transaction by reference number")
+	fmt.Println("  account list         - List all accounts with balances and sync status")
+	fmt.Println("  account disable <id> - Disable syncing for an account by its LunchMoney ID")
 	fmt.Println("  exit, quit           - Exit the REPL")
 	fmt.Println("  curl [command]       - Execute a curl-like command to fetch transactions")
 	fmt.Println()
@@ -467,7 +545,7 @@ func printHelp() {
 func showConfig() {
 	cfg, err := config.GetConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
+		log.Error().Err(err).Msg("Error loading configuration")
 		return
 	}
 

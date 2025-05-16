@@ -25,6 +25,16 @@ type MockDB struct {
 	UpsertAccountMappingErr error
 }
 
+// IsAccountSyncEnabled implements DBInterface.
+func (m *MockDB) IsAccountSyncEnabled(lunchMoneyId int64) (bool, error) {
+	return true, nil
+}
+
+// DisableAccountSync implements DBInterface.
+func (m *MockDB) DisableAccountSync(lunchMoneyId string) error {
+	return nil
+}
+
 // GetAccounts implements DBInterface.
 func (m *MockDB) GetAccounts() ([]models.LunchMoneyAccount, error) {
 	panic("unimplemented")

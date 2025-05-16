@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 type RogersOptions struct {
@@ -16,9 +17,10 @@ type RogersOptions struct {
 }
 
 type WealthsimpleOptions struct {
-	Username    string `yaml:"username"`
-	Password    string `yaml:"password"`
-	PrevSession string `yaml:"prevSession"`
+	Username      string    `yaml:"username"`
+	Password      string    `yaml:"password"`
+	PrevSession   string    `yaml:"prevSession"`
+	StartSyncDate time.Time `yaml:"startSyncDate"`
 }
 
 type ScotiabankOptions struct {
@@ -225,4 +227,17 @@ func SetWealthsimplePrevSession(session string) error {
 	}
 
 	return nil
+}
+
+func GetWealthsimpleStartSyncDate() (time.Time, error) {
+	config, err := GetConfig()
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if config.WealthsimpleApiOptions.StartSyncDate.IsZero() {
+		return time.Time{}, fmt.Errorf("error: Wealthsimple API start sync date not set in configuration")
+	}
+
+	return config.WealthsimpleApiOptions.StartSyncDate, nil
 }

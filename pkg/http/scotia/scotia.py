@@ -3,15 +3,16 @@ import json
 from patchright.sync_api import sync_playwright, Page, Cookie
 from urllib.parse import urlencode, urlparse, parse_qs, unquote
 from uuid import uuid4
-from typing import Dict
+from typing import Dict, List, cast
 import yaml
 import time
 import os
 import sys
-from logging import getLogger, INFO
+from logging import getLogger, INFO, StreamHandler
 
 logger = getLogger()
 logger.setLevel(INFO)
+logger.addHandler(StreamHandler(sys.stdout))
 info = logger.info
 
 @dataclass
@@ -95,7 +96,7 @@ class ScotiaClient:
         """
         if not os.path.exists(self.session_file):
             info("Session file does not exist, cannot load back session config")
-            self.session = None
+            self.session: Session | None = None
             self.rsid = "web_" + str(uuid4())
             return
         
@@ -192,16 +193,19 @@ class ScotiaClient:
         """
         Fetch the auth saved users from the response
         """
-        bns_auth_saved_users: Cookie = next(
-            (cookie for cookie in page.context.cookies() if "bns-auth-saved-users" in cookie["name"]),
+        bns_auth_saved_users: Cookie | None = next(
+            (cookie for cookie in page.context.cookies() if "name" in cookie and "bns-auth-saved-users" in cookie["name"]),
             None
         )
         if not bns_auth_saved_users:
             raise Exception("Missing set-cookie in current context, cookies: " + str(page.context.cookies()))
     
         # decode the bns-auth-saved-users cookie (its url encoded)
-        bns_auth_saved_users = bns_auth_saved_users["value"]
-        decoded_bns_auth_saved_users = unquote(bns_auth_saved_users)
+        bns_auth_saved_users_val = bns_auth_saved_users.get("value")
+        if not bns_auth_saved_users_val:
+            raise Exception("Missing value in bns-auth-saved-users cookie")
+        
+        decoded_bns_auth_saved_users = unquote(bns_auth_saved_users_val)
         # decode the cookie value
         decoded_bns_auth_saved_users = json.loads(decoded_bns_auth_saved_users)
 
@@ -231,16 +235,16 @@ class ScotiaClient:
             raise Exception(f"Expected 204, got {response.status} body: {response.text()}")
         
         # decode the bns-auth-saved-users cookie again
-        bns_auth_saved_users = page.context.cookies()
-        bns_auth_saved_users = next(
-            (cookie for cookie in bns_auth_saved_users if "bns-auth-saved-users" in cookie["name"]),
+        second_round_cookies: List[Cookie] = page.context.cookies()
+        bns_auth_saved_user_cookie = next(
+            (cookie for cookie in second_round_cookies if "name" in cookie and "bns-auth-saved-users" in cookie["name"]),
             None
         )
-        if not bns_auth_saved_users:
+        if not bns_auth_saved_user_cookie:
             raise Exception("Missing set-cookie in current context, cookies: " + str(page.context.cookies()))
         
         info("Multi-user API responded with valid cookie")
-        return bns_auth_saved_users
+        return bns_auth_saved_user_cookie
 
     def save_session(self):
         """
@@ -284,7 +288,7 @@ class ScotiaClient:
         page_cookies = page.context.cookies()
         # Check if the session ID cookie is present
         session_id_cookie = next(
-            (cookie for cookie in page_cookies if "session-id" in cookie["name"]),
+            (cookie for cookie in page_cookies if "name" in cookie and "session-id" in cookie["name"]),
             None
         )
         if not session_id_cookie:
@@ -292,7 +296,7 @@ class ScotiaClient:
         
         # Check if the bypass_akamai cookies are present
         bypass_akamai_cookies = [
-            cookie for cookie in page_cookies if cookie["name"] in ["bm_sv", "bm_sz", "_abck", 
+            cookie for cookie in page_cookies if "name" in cookie and cookie["name"] in ["bm_sv", "bm_sz", "_abck", 
                                                                     "ak_bmsc", "AKA_A2", "bm_mi", "bmuid"]
         ]
         if not bypass_akamai_cookies:
@@ -366,7 +370,7 @@ class ScotiaClient:
                 raise Exception("Missing required challenges")
             
             
-            solved_challenges = [password_challenge, mfa_nonce, two_sv_token]
+            solved_challenges = cast(List[dict], [password_challenge, mfa_nonce, two_sv_token])
             auth_url_with_key = f"{auth_url}/{auth_res['key']}"
             info("--------- STEP 2 ---------")
             info(f"Authentication URL: {auth_url_with_key}")
@@ -429,6 +433,8 @@ class ScotiaClient:
                                                                                        additional_headers=additional_headers))
                 self.sleep(5)
 
+            if not auth_token:
+                raise Exception("Missing auth token in response")
             info("--------- STEP 4 ---------")
             bns_auth_saved_users: Cookie = self.fetch_auth_saved_users(page)
 
@@ -437,7 +443,7 @@ class ScotiaClient:
             query_params = parse_qs(parsed_uri.query)
             query_params["code"] = auth_with_code["auth_code"]
             query_params["state"] = auth_with_code["state"]
-            query_params["log_id"] = auth_token
+            query_params["log_id"] = [auth_token]
 
             final_url = f"{parsed_uri.scheme}://{parsed_uri.netloc}{parsed_uri.path}?{urlencode(query_params, doseq=True)}"
             info(f"Executing final url to '{parsed_uri.netloc}'")

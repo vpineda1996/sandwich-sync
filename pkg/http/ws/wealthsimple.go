@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/samber/lo"
 	"github.com/vpnda/sandwich-sync/pkg/config"
 	"github.com/vpnda/sandwich-sync/pkg/http"
 	"github.com/vpnda/sandwich-sync/pkg/models"
@@ -119,6 +120,20 @@ func (w *WealthsimpleClient) FetchTransactions(ctx context.Context) ([]models.Tr
 			})
 		}
 	}
+
+	startDate, err := config.GetWealthsimpleStartSyncDate()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get start sync date: %w", err)
+	}
+
+	transactions = lo.Filter(transactions, func(t models.TransactionWithAccount, _ int) bool {
+		txDate, err := time.Parse(time.DateOnly, t.Transaction.Date)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to parse transaction date: %s", t.Transaction.Date)
+			return false
+		}
+		return txDate.After(startDate)
+	})
 
 	log.Info().Msgf("Found %d transactions", len(transactions))
 	return transactions, nil

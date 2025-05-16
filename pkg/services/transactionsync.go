@@ -40,24 +40,37 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 	}
 
 	if len(unsyncedTransactions) != 0 {
-		// sync the transactions with the LunchMoney API
-		fmt.Printf("Syncing %d unsynced transactions with LunchMoney\n", len(unsyncedTransactions))
 		enrichUnsyncedTransactions, err := l.enrichWithAccounts(ctx, unsyncedTransactions)
 		if err != nil {
 			return err
 		}
 
-		insertionIds, err := l.client.InsertTransactions(ctx, enrichUnsyncedTransactions)
+		// filter out transactions that are marked for no sync
+		unsyncedTransactions, enrichUnsyncedTransactions, err = l.
+			filterOutNoSyncTransactions(unsyncedTransactions, enrichUnsyncedTransactions)
 		if err != nil {
 			return err
 		}
 
-		// update the local database with the insertion IDs
-		for i, transaction := range unsyncedTransactions {
-			if i < len(insertionIds) {
-				transaction.LunchMoneyID = insertionIds[i]
-				if err := l.database.UpdateTransaction(transaction); err != nil {
-					return err
+		if len(unsyncedTransactions) != 0 {
+			// sync the transactions with the LunchMoney API
+			fmt.Printf("Syncing %d unsynced transactions with LunchMoney\n", len(unsyncedTransactions))
+			insertionIds, err := l.client.InsertTransactions(ctx, enrichUnsyncedTransactions)
+			if err != nil {
+				return err
+			}
+
+			if len(insertionIds) != len(enrichUnsyncedTransactions) {
+				return fmt.Errorf("failed to insert all transactions, expected %d, got %d", len(enrichUnsyncedTransactions), len(insertionIds))
+			}
+
+			// update the local database with the insertion IDs
+			for i, transaction := range unsyncedTransactions {
+				if i < len(insertionIds) {
+					transaction.LunchMoneyID = insertionIds[i]
+					if err := l.database.UpdateTransaction(transaction); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -73,6 +86,23 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (l *LunchMoneySyncer) filterOutNoSyncTransactions(unsyncedTransactions []*models.TransactionWithAccount,
+	enrichUnsyncedTransactions []*models.TransactionWithAccountMapping) ([]*models.TransactionWithAccount, []*models.TransactionWithAccountMapping, error) {
+	ut, eut := make([]*models.TransactionWithAccount, 0), make([]*models.TransactionWithAccountMapping, 0)
+	for i, e := range enrichUnsyncedTransactions {
+		shouldSync, err := l.database.IsAccountSyncEnabled(e.Mapping.LunchMoneyId)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if shouldSync {
+			ut = append(ut, unsyncedTransactions[i])
+			eut = append(eut, e)
+		}
+	}
+	return ut, eut, nil
 }
 
 func (l *LunchMoneySyncer) enrichWithAccounts(ctx context.Context,
@@ -106,6 +136,11 @@ func (l *LunchMoneySyncer) filterUnsyncedTransactions(ctx context.Context,
 	for _, transaction := range transactions {
 		if transaction.ReferenceNumber == "" {
 			// Skip transactions without a reference number
+			continue
+		}
+
+		if transaction.LunchMoneyID < 0 {
+			// Skip transactions with a negative LunchMoneyID
 			continue
 		}
 
@@ -147,11 +182,13 @@ func (l *LunchMoneySyncer) filterUnsyncedTransactions(ctx context.Context,
 			}
 		}
 
-		if !transactionSynced {
-			// This transaction is not synced
-			fmt.Printf("Transaction [%s] from %s is not synced with LunchMoney \n", transaction.ReferenceNumber, transaction.Merchant.Name)
-			unsynced = append(unsynced, transaction)
+		if transactionSynced {
+			continue
 		}
+
+		// This transaction is not synced
+		fmt.Printf("Transaction [%s] from %s is not synced with LunchMoney \n", transaction.ReferenceNumber, transaction.Merchant.Name)
+		unsynced = append(unsynced, transaction)
 	}
 
 	return unsynced, missingUpdate, nil

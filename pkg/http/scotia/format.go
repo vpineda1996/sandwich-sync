@@ -2,12 +2,10 @@ package scotia
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/vpnda/sandwich-sync/pkg/models"
+	"github.com/vpnda/sandwich-sync/pkg/utils"
 	openapiclient "github.com/vpnda/scotiafetch"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 func AccountName(account interface{ GetDescription() string }) string {
@@ -28,15 +26,11 @@ func formatAmount(transactionType TransactionType,
 	}
 }
 
-func capitalize(s string) string {
-	return cases.Title(language.English).String(strings.ToLower(s))
-}
-
 func formatTransactionDescription(transaction *openapiclient.ApiCreditCreditIdTransactionsGet200ResponseDataSettledInner) string {
 	switch TransactionType(transaction.GetTransactionType()) {
 	case TransactionTypeDebit:
 		// Only use merchant name on "purchases" / debit transactions
-		return capitalize(*transaction.Merchant.Name)
+		return utils.Capitalize(*transaction.Merchant.Name)
 	}
-	return capitalize(transaction.GetCleanDescription())
+	return utils.Capitalize(transaction.GetCleanDescription())
 }
