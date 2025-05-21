@@ -65,10 +65,10 @@ github.com/vektah/gqlparser/v2 v2.5.27 h1:RHPD3JOplpk5mP5JGX8RKZkt2/Vwj/PZv0HxTd
 github.com/vektah/gqlparser/v2 v2.5.27/go.mod h1:D1/VCZtV3LPnQrcPBeR/q5jkSQIPti0uYCP/RI0gIeo=
 github.com/vpnda/lunchmoney v0.5.4 h1:T6cp6Xsq9BWjfJOG6TkEFVKGwH/BvhJV0fvg7Et6xrE=
 github.com/vpnda/lunchmoney v0.5.4/go.mod h1:zk07IlbNSzeM063YGkGxujZuWmnMKEM18+LrVs/CZb4=
-github.com/vpnda/scotiafetch v0.0.0-20250509212639-e41ef8b1ad83 h1:ujVUVEkqxVhs4zBO5KAHQdXjIXLl6jDWCiocV0dBaQY=
-github.com/vpnda/scotiafetch v0.0.0-20250509212639-e41ef8b1ad83/go.mod h1:frbYBDTj15ltYVvm+CI7lJnPXJBPr0cqH8ayBvHU0Sg=
-github.com/vpnda/wsfetch v0.1.2-0.20250515155355-eebe3ac2906b h1:NhpNl6DUZ2RpuJ6fyQrWDZdK8t18RO+YzqA+JCs9Uoo=
-github.com/vpnda/wsfetch v0.1.2-0.20250515155355-eebe3ac2906b/go.mod h1:gzD+GEHzvlbCYBugSHqwL7HZn0TqsxlFIitaXtlNBSc=
+github.com/vpnda/scotiafetch v0.0.0-20250521232439-1813849e5654 h1:mst/If+YM/RImLq3OQK1G+Vbvq9tDPRtqe3p1/M8jXY=
+github.com/vpnda/scotiafetch v0.0.0-20250521232439-1813849e5654/go.mod h1:frbYBDTj15ltYVvm+CI7lJnPXJBPr0cqH8ayBvHU0Sg=
+github.com/vpnda/scotiafetch v0.0.0-20250521233659-b5b1c468493c h1:4iEZjfNt9c6i74wxEh0Ty7g/zXA6skmf+t/PWzScL70=
+github.com/vpnda/scotiafetch v0.0.0-20250521233659-b5b1c468493c/go.mod h1:frbYBDTj15ltYVvm+CI7lJnPXJBPr0cqH8ayBvHU0Sg=
 github.com/vpnda/wsfetch v0.1.2-0.20250515155945-15d5c1997864 h1:aNJv4LJVJJ++Reyrd4q2y3Qt+Z2vmyHeh723fyIvVow=
 github.com/vpnda/wsfetch v0.1.2-0.20250515155945-15d5c1997864/go.mod h1:gzD+GEHzvlbCYBugSHqwL7HZn0TqsxlFIitaXtlNBSc=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
