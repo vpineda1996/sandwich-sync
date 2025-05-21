@@ -103,24 +103,25 @@ func TestDisableAccountSync(t *testing.T) {
 	defer db.Close()
 
 	// Insert an account that has sync enabled by default
-	_, err := db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, should_sync) VALUES (?, ?, ?, ?)",
-		42, "300.00", "USD", true)
+	_, err := db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, sync_strategy) VALUES (?, ?, ?, ?)",
+		42, "300.00", "USD", models.AllSyncOption)
 	assert.NoError(t, err)
 
 	// Verify initial state
-	var shouldSync bool
-	err = db.QueryRow("SELECT should_sync FROM account_info WHERE lunchmoney_account_id = ?", 42).Scan(&shouldSync)
+	var shouldSync int64
+	err = db.QueryRow("SELECT sync_strategy FROM account_info WHERE lunchmoney_account_id = ?", 42).Scan(&shouldSync)
 	assert.NoError(t, err)
-	assert.True(t, shouldSync)
+	assert.Greater(t, shouldSync, int64(0))
 
 	// Disable sync
-	err = db.DisableAccountSync("42")
+	err = db.DisableSyncOptions("42", models.SyncOptionTransactions)
 	assert.NoError(t, err)
 
 	// Verify sync was disabled
-	err = db.QueryRow("SELECT should_sync FROM account_info WHERE lunchmoney_account_id = ?", 42).Scan(&shouldSync)
+	err = db.QueryRow("SELECT sync_strategy FROM account_info WHERE lunchmoney_account_id = ?", 42).Scan(&shouldSync)
 	assert.NoError(t, err)
-	assert.False(t, shouldSync)
+	assert.Equal(t, shouldSync&int64(models.SyncOptionTransactions), int64(0))
+	assert.Equal(t, shouldSync&int64(models.SyncOptionBalance), int64(models.SyncOptionBalance))
 }
 
 func TestIsAccountSyncEnabled(t *testing.T) {
@@ -128,13 +129,13 @@ func TestIsAccountSyncEnabled(t *testing.T) {
 	defer db.Close()
 
 	// Test 1: Account exists with sync enabled
-	_, err := db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, should_sync) VALUES (?, ?, ?, ?)",
-		100, "500.00", "USD", true)
+	_, err := db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, sync_strategy) VALUES (?, ?, ?, ?)",
+		100, "500.00", "USD", models.SyncOptionTransactions)
 	assert.NoError(t, err)
 
 	// Test 2: Account exists with sync disabled
-	_, err = db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, should_sync) VALUES (?, ?, ?, ?)",
-		101, "750.00", "USD", false)
+	_, err = db.Exec("INSERT INTO account_info (lunchmoney_account_id, balance_value, balance_currency, sync_strategy) VALUES (?, ?, ?, ?)",
+		101, "750.00", "USD", 0)
 	assert.NoError(t, err)
 
 	// Test cases
@@ -166,7 +167,7 @@ func TestIsAccountSyncEnabled(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			syncEnabled, err := db.IsAccountSyncEnabled(tc.accountID)
+			syncEnabled, err := db.IsSyncOptionEnabled(tc.accountID, models.SyncOptionTransactions)
 
 			if tc.expectedError {
 				assert.Error(t, err)

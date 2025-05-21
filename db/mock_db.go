@@ -25,14 +25,14 @@ type MockDB struct {
 	UpsertAccountMappingErr error
 }
 
-// IsAccountSyncEnabled implements DBInterface.
-func (m *MockDB) IsAccountSyncEnabled(lunchMoneyId int64) (bool, error) {
-	return true, nil
+// DisableSyncOptions implements DBInterface.
+func (m *MockDB) DisableSyncOptions(lunchMoneyId string, syncOption models.SyncOption) error {
+	return nil
 }
 
-// DisableAccountSync implements DBInterface.
-func (m *MockDB) DisableAccountSync(lunchMoneyId string) error {
-	return nil
+// IsSyncOptionEnabled implements DBInterface.
+func (m *MockDB) IsSyncOptionEnabled(lunchMoneyId int64, syncOption models.SyncOption) (bool, error) {
+	return true, nil
 }
 
 // GetAccounts implements DBInterface.

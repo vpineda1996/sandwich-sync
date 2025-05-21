@@ -19,6 +19,19 @@ type ExternalAccount struct {
 	Balance Amount
 }
 
+type SyncOption int
+
+const (
+	// SyncOptionTransactions is the operation to sync transactions
+	SyncOptionTransactions SyncOption = 1 << iota
+	// SyncOptionBalance is the operation to sync balances
+	SyncOptionBalance
+)
+
+const (
+	AllSyncOption = SyncOptionTransactions | SyncOptionBalance
+)
+
 type LunchMoneyAccount struct {
 	// LunchMoneyId is the ID of the account in LunchMoney
 	LunchMoneyId int64
@@ -33,6 +46,6 @@ type LunchMoneyAccount struct {
 	BalanceLastUpdated *time.Time
 	// IsPlaid indicates if the account is linked via Plaid
 	IsPlaid bool
-	// ShouldSync indicates if the account should be synced
-	ShouldSync bool
+	// Sync strategy
+	SyncStrategy SyncOption
 }

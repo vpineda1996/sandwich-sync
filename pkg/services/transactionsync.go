@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/vpnda/sandwich-sync/pkg/models"
 
 	"github.com/icco/lunchmoney"
@@ -17,7 +18,8 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Fetched %d transactions from local database\n", len(transactions))
+	log.Info().Int("count", len(transactions)).
+		Msg("Fetched transactions from local database")
 
 	// only consider transactions that are less than 30 days old
 	recentTransactions := make([]*models.TransactionWithAccount, 0)
@@ -31,7 +33,7 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 		}
 	}
 
-	fmt.Printf("Filtered to %d recent transactions\n", len(recentTransactions))
+	log.Info().Int("count", len(recentTransactions)).Msg("Filtered recent transactions")
 
 	// filter transactions to only those that are not already synced
 	unsyncedTransactions, syncedNeededToUpdateTransactions, err := l.filterUnsyncedTransactions(ctx, recentTransactions)
@@ -54,7 +56,7 @@ func (l *LunchMoneySyncer) SyncTransactions(ctx context.Context) error {
 
 		if len(unsyncedTransactions) != 0 {
 			// sync the transactions with the LunchMoney API
-			fmt.Printf("Syncing %d unsynced transactions with LunchMoney\n", len(unsyncedTransactions))
+			log.Info().Int("count", len(unsyncedTransactions)).Msg("Unsynced transactions with LunchMoney")
 			insertionIds, err := l.client.InsertTransactions(ctx, enrichUnsyncedTransactions)
 			if err != nil {
 				return err
@@ -92,7 +94,7 @@ func (l *LunchMoneySyncer) filterOutNoSyncTransactions(unsyncedTransactions []*m
 	enrichUnsyncedTransactions []*models.TransactionWithAccountMapping) ([]*models.TransactionWithAccount, []*models.TransactionWithAccountMapping, error) {
 	ut, eut := make([]*models.TransactionWithAccount, 0), make([]*models.TransactionWithAccountMapping, 0)
 	for i, e := range enrichUnsyncedTransactions {
-		shouldSync, err := l.database.IsAccountSyncEnabled(e.Mapping.LunchMoneyId)
+		shouldSync, err := l.database.IsSyncOptionEnabled(e.Mapping.LunchMoneyId, models.SyncOptionTransactions)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -117,7 +119,7 @@ func (l *LunchMoneySyncer) enrichWithAccounts(ctx context.Context,
 		}
 
 		if account == nil {
-			fmt.Printf("No account found for transaction %s\n", transaction.ReferenceNumber)
+			log.Info().Str("transactionId", transaction.ReferenceNumber).Msg("No account found for transaction")
 			continue
 		}
 		// create a new transaction with the account
@@ -174,7 +176,8 @@ func (l *LunchMoneySyncer) filterUnsyncedTransactions(ctx context.Context,
 				amountEq &&
 				transaction.Merchant.Name == lunchTransaction.Merchant.Name) || transaction.ReferenceNumber == lunchTransaction.ReferenceNumber {
 				// This transaction is already synced
-				fmt.Printf("Transaction %s is already synced with LunchMoney (id: %d) \n", transaction.ReferenceNumber, lunchTransaction.LunchMoneyID)
+				log.Info().Str("transactionId", transaction.ReferenceNumber).
+					Int64("lunchId", lunchTransaction.LunchMoneyID).Msg("Transaction is already synced with LunchMoney")
 				transaction.LunchMoneyID = lunchTransaction.LunchMoneyID
 				missingUpdate = append(missingUpdate, transaction)
 				transactionSynced = true
@@ -187,7 +190,6 @@ func (l *LunchMoneySyncer) filterUnsyncedTransactions(ctx context.Context,
 		}
 
 		// This transaction is not synced
-		fmt.Printf("Transaction [%s] from %s is not synced with LunchMoney \n", transaction.ReferenceNumber, transaction.Merchant.Name)
 		unsynced = append(unsynced, transaction)
 	}
 
