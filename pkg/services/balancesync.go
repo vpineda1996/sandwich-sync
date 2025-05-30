@@ -43,7 +43,7 @@ func (l *LunchMoneySyncer) SyncBalances(ctx context.Context) error {
 			continue
 		}
 
-		if !localAccount.ShouldSync {
+		if localAccount.SyncStrategy&models.SyncOptionBalance == 0 {
 			continue
 		}
 

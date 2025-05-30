@@ -13,6 +13,8 @@ require (
 	github.com/samber/lo v1.50.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
+	github.com/vpnda/scotiafetch v0.0.0-20250521233659-b5b1c468493c
+	github.com/vpnda/wsfetch v0.1.2-0.20250515155945-15d5c1997864
 	golang.org/x/text v0.25.0
 )
 
@@ -32,7 +34,6 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.27 // indirect
-	github.com/vpnda/wsfetch v0.1.2-0.20250515155355-eebe3ac2906b // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
