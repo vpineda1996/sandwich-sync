@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -14,6 +15,7 @@ import (
 	"github.com/vpnda/wsfetch/pkg/auth/types"
 	"github.com/vpnda/wsfetch/pkg/base"
 	"github.com/vpnda/wsfetch/pkg/client"
+	"github.com/vpnda/wsfetch/pkg/client/generated"
 )
 
 type WealthsimpleClient struct {
@@ -74,6 +76,43 @@ func NewWealthsimpleClient(ctx context.Context) (*WealthsimpleClient, error) {
 	}, nil
 }
 
+func (w *WealthsimpleClient) getActivityForAccount(ctx context.Context, account *generated.AccountWithFinancials, from, until *time.Time) ([]models.TransactionWithAccount, error) {
+	var transactions []models.TransactionWithAccount
+	activity, err := w.c.GetActivities(ctx, []client.AccountId{client.AccountId(account.Id)}, from, until)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transactions: %w", err)
+	}
+	trns, ok := activity[client.AccountId(account.Id)]
+	if !ok {
+		log.Info().Msgf("No transactions found for account %s", account.Id)
+		return transactions, nil
+	}
+	log.Info().Msgf("Found %d transactions for account %s", len(trns), account.Id)
+
+	for _, trn := range trns {
+		desc, err := client.GetActivityDescription(ctx, w.c, &trn)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get transaction description: %w", err)
+		}
+
+		transactions = append(transactions, models.TransactionWithAccount{
+			Transaction: models.Transaction{
+				ReferenceNumber: *trn.CanonicalId,
+				Merchant: &models.Merchant{
+					Name: desc,
+				},
+				Amount: models.Amount{
+					Value:    client.GetFormattedAmount(&trn),
+					Currency: *trn.Currency,
+				},
+				Date: trn.OccurredAt.Format(time.DateOnly),
+			},
+			SourceAccountName: account.Id,
+		})
+	}
+	return transactions, nil
+}
+
 // FetchTransactions implements http.TransactionFetcher.
 func (w *WealthsimpleClient) FetchTransactions(ctx context.Context) ([]models.TransactionWithAccount, error) {
 	accounts, err := w.c.GetAccounts(ctx)
@@ -86,39 +125,35 @@ func (w *WealthsimpleClient) FetchTransactions(ctx context.Context) ([]models.Tr
 	from := time.Now().Add(-30 * 24 * time.Hour)
 	until := time.Now()
 
+	wg := sync.WaitGroup{}
+	ch := make(chan []models.TransactionWithAccount, len(accounts))
+
 	for _, account := range accounts {
-		activity, err := w.c.GetActivities(ctx, []client.AccountId{client.AccountId(account.Id)}, &from, &until)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get transactions: %w", err)
-		}
-		trns, ok := activity[client.AccountId(account.Id)]
-		if !ok {
-			log.Info().Msgf("No transactions found for account %s", account.Id)
+		if account.ClosedAt != nil {
+			log.Info().Str("accountId", account.Id).Msgf("Skipping retrieving closed account transactions")
 			continue
 		}
-		log.Info().Msgf("Found %d transactions for account %s", len(trns), account.Id)
 
-		for _, trn := range trns {
-			desc, err := client.GetActivityDescription(ctx, w.c, &trn)
+		wg.Add(1)
+		go func(account generated.AccountWithFinancials) {
+			defer wg.Done()
+			transactionsForAccount, err := w.getActivityForAccount(ctx, &account, &from, &until)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get transaction description: %w", err)
+				log.Error().Err(err).Msgf("Failed to get transactions for account %s", account.Id)
+				return
 			}
+			ch <- transactionsForAccount
+		}(account)
+	}
 
-			transactions = append(transactions, models.TransactionWithAccount{
-				Transaction: models.Transaction{
-					ReferenceNumber: *trn.CanonicalId,
-					Merchant: &models.Merchant{
-						Name: desc,
-					},
-					Amount: models.Amount{
-						Value:    client.GetFormattedAmount(&trn),
-						Currency: *trn.Currency,
-					},
-					Date: trn.OccurredAt.Format(time.DateOnly),
-				},
-				SourceAccountName: account.Id,
-			})
+	wg.Wait()
+	close(ch)
+
+	for txs := range ch {
+		if len(txs) == 0 {
+			continue
 		}
+		transactions = append(transactions, txs...)
 	}
 
 	startDate, err := config.GetWealthsimpleStartSyncDate()

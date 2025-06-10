@@ -74,6 +74,20 @@ func init() {
 
 	rootCmd.AddCommand(replCmd, configCmd)
 
+	fetchAndSyncCmd := &cobra.Command{
+		Use:   "fetch-and-sync",
+		Short: "Fetch and sync transactions",
+		Long:  `Fetch transactions from the configured API and sync them with the database.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := cmd.Context()
+			r := initReplState(ctx)
+			r.processTransactionFetch("fetch all")
+			r.syncState()
+		},
+	}
+
+	rootCmd.AddCommand(fetchAndSyncCmd)
+
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 }
 
