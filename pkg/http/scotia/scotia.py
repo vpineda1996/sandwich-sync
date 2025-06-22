@@ -224,7 +224,7 @@ class ScotiaClient:
         info(f"Masked ID: {masked_id}, Web Track ID: {web_track_id}")
 
         # invoke the mult-user api
-        multi_user_url = f"https://auth.scotiaonline.scotiabank.com/api/multi-user/{masked_id}"
+        multi_user_url = f"https://auth.scotiaonline.scotiabank.com/v2/authentications/multi-user/{masked_id}"
         multi_user_headers = {
             "x-web-track-id": web_track_id,
             **self.build_client_headers()
@@ -422,7 +422,7 @@ class ScotiaClient:
                 if not selected_challenge:
                     raise Exception("Missing polling challenge")
                 
-                info(f", selected challenge: {selected_challenge['type']}")
+                info(f"Selected challenge: {selected_challenge['type']}")
 
                 additional_headers = {"x-bff-action": "tmp-cookie-2sv-token"} if selected_challenge["type"] == "POLLING" else {}
 
